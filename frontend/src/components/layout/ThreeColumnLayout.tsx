@@ -65,56 +65,67 @@ export default function ThreeColumnLayout({
   const sidebarHidden = leftCollapsed || hideLeft || focusMode;
   const aiHidden = rightCollapsed || hideRight || focusMode;
 
+  // Desktop layout: three columns
   return (
-    <div className="flex min-h-0 flex-1">
-      {/* Left Panel */}
-      {!hideLeft && (
-        <div
-          className={`border-r border-gray-200 bg-white overflow-hidden flex-shrink-0 transition-all duration-300 ${
-            sidebarHidden ? 'w-0 border-r-0 opacity-0' : ''
-          }`}
-          style={{ width: sidebarHidden ? 0 : lw }}
-        >
-          <div style={{ width: lw }} className="h-full overflow-y-auto">
-            {left}
-          </div>
+    <>
+      {/* Mobile layout: single column */}
+      <div className="flex lg:hidden h-full min-h-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
+          {center}
         </div>
-      )}
-
-      {/* Left resize handle */}
-      {!hideLeft && !sidebarHidden && (
-        <div
-          className="w-1 cursor-col-resize bg-transparent hover:bg-orange-300 active:bg-orange-400 transition-colors flex-shrink-0 hidden lg:block"
-          onMouseDown={() => setIsDraggingLeft(true)}
-        />
-      )}
-
-      {/* Center Panel */}
-      <div className="flex-1 min-w-0 overflow-hidden">
-        {center}
       </div>
 
-      {/* Right resize handle */}
-      {!hideRight && !aiHidden && (
-        <div
-          className="w-1 cursor-col-resize bg-transparent hover:bg-orange-300 active:bg-orange-400 transition-colors flex-shrink-0 hidden lg:block"
-          onMouseDown={() => setIsDraggingRight(true)}
-        />
-      )}
-
-      {/* Right Panel */}
-      {!hideRight && (
-        <div
-          className={`border-l border-gray-200 bg-white overflow-hidden flex-shrink-0 transition-all duration-300 ${
-            aiHidden ? 'w-0 border-l-0 opacity-0' : ''
-          }`}
-          style={{ width: aiHidden ? 0 : rw }}
-        >
-          <div style={{ width: rw }} className="h-full overflow-y-auto">
-            {right}
+      {/* Desktop layout: three columns */}
+      <div className="hidden lg:flex h-full min-h-0">
+        {/* Left Panel */}
+        {!hideLeft && (
+          <div
+            className={`border-r border-gray-200 bg-white overflow-hidden flex-shrink-0 transition-all duration-300 ${
+              sidebarHidden ? 'w-0 border-r-0 opacity-0' : ''
+            }`}
+            style={{ width: sidebarHidden ? 0 : lw }}
+          >
+            <div style={{ width: lw }} className="h-full overflow-y-auto">
+              {left}
+            </div>
           </div>
+        )}
+
+        {/* Left resize handle */}
+        {!hideLeft && !sidebarHidden && (
+          <div
+            className="w-1 cursor-col-resize bg-transparent hover:bg-orange-300 active:bg-orange-400 transition-colors flex-shrink-0"
+            onMouseDown={() => setIsDraggingLeft(true)}
+          />
+        )}
+
+        {/* Center Panel */}
+        <div className="flex-1 min-w-0 overflow-hidden">
+          {center}
         </div>
-      )}
-    </div>
+
+        {/* Right resize handle */}
+        {!hideRight && !aiHidden && (
+          <div
+            className="w-1 cursor-col-resize bg-transparent hover:bg-orange-300 active:bg-orange-400 transition-colors flex-shrink-0"
+            onMouseDown={() => setIsDraggingRight(true)}
+          />
+        )}
+
+        {/* Right Panel */}
+        {!hideRight && (
+          <div
+            className={`border-l border-gray-200 bg-white overflow-hidden flex-shrink-0 transition-all duration-300 ${
+              aiHidden ? 'w-0 border-l-0 opacity-0' : ''
+            }`}
+            style={{ width: aiHidden ? 0 : rw }}
+          >
+            <div style={{ width: rw }} className="h-full overflow-y-auto">
+              {right}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

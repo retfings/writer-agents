@@ -211,7 +211,7 @@ export default function ChapterContent({
             ref={textareaRef}
             value={text}
             onChange={handleChange}
-            className={`w-full min-h-[60vh] resize-none bg-transparent border-none outline-none font-serif ${textColors[theme]} ${placeholderColors[theme]}`}
+            className={`w-full min-h-[60vh] resize-none bg-transparent border-none outline-none font-serif ${textColors[theme]} ${placeholderColors[theme]} text-[16px] sm:text-base`}
             style={{
               fontSize: `${fontSize}px`,
               lineHeight: '1.75',

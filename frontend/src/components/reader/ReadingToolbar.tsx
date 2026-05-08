@@ -78,7 +78,7 @@ export default function ReadingToolbar({
     <div className={`border-b ${bgColor} transition-colors`}>
       <div className="px-4 py-2 flex items-center justify-between">
         {/* Left: sidebar toggles + formatting */}
-        <div className="flex items-center gap-0.5">
+        <div className="hidden lg:flex items-center gap-0.5">
           <button onClick={onToggleLeft} className={`text-xs px-1.5 py-1 rounded ${textColor} hover:bg-gray-100`} title="大纲">
             {leftCollapsed ? '📑' : '📑◀'}
           </button>

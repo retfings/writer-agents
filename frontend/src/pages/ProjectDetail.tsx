@@ -7,6 +7,9 @@ import ChapterContent from '../components/reader/ChapterContent';
 import ChapterNav from '../components/reader/ChapterNav';
 import ReadingToolbar from '../components/reader/ReadingToolbar';
 import AIChatPanel from '../components/chat/AIChatPanel';
+import MobileBottomNav from '../components/mobile/MobileBottomNav';
+import MobileDrawer from '../components/mobile/MobileDrawer';
+import MobileFormatBubble from '../components/mobile/MobileFormatBubble';
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +36,7 @@ export default function ProjectDetail() {
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [mobileDrawer, setMobileDrawer] = useState<'outline' | 'ai' | 'none'>('none');
 
   // Reading settings (persisted)
   const [fontSize, setFontSize] = useState(() => {
@@ -301,7 +305,7 @@ export default function ProjectDetail() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
+    <div className="h-full flex flex-col bg-gray-50 overflow-hidden lg:pb-0 pb-12">
       {/* Top header bar */}
       <header className="bg-white border-b border-gray-200 shrink-0 z-10">
         <div className="px-3 sm:px-4 py-2.5 flex items-center gap-3">
@@ -494,6 +498,49 @@ export default function ProjectDetail() {
           </div>
         </div>
       )}
+
+      {/* Mobile bottom nav & drawers */}
+      <MobileBottomNav activeTab={mobileDrawer} onTabChange={setMobileDrawer} />
+      <MobileDrawer open={mobileDrawer === 'outline'} onClose={() => setMobileDrawer('none')} title="大纲 & 创作">
+        <div className="text-sm">
+          <Sidebar
+            chapters={chapterList}
+            activeChapterId={activeChapterId}
+            onSelectChapter={(ch) => { setActiveChapterId(ch.id); setMobileDrawer('none'); }}
+            onGenerateOutline={handleGenerateOutline}
+            generating={generating}
+            onDeleteChapter={handleDeleteChapter}
+            onDeleteAll={handleDeleteAll}
+            deletingAll={deletingAll}
+            characters={charList}
+            onAddCharacter={handleAddCharacter}
+            foreshadowing={foreshadowingList}
+            chapterTitles={chapterTitles}
+            onAddForeshadowing={handleAddForeshadowing}
+            onToggleForeshadowing={handleToggleForeshadowing}
+            onDeleteForeshadowing={handleDeleteForeshadowing}
+            notes={notesList}
+            onAddNote={handleAddNote}
+            onUpdateNote={handleUpdateNote}
+            onDeleteNote={handleDeleteNote}
+          />
+        </div>
+      </MobileDrawer>
+      <MobileDrawer open={mobileDrawer === 'ai'} onClose={() => setMobileDrawer('none')} title="AI 助手">
+        <AIChatPanel
+          projectId={id!}
+          chapterId={activeChapterId}
+          chapterTitle={activeChapter ? `第${activeChapter.number}章 ${activeChapter.title}` : undefined}
+        />
+      </MobileDrawer>
+      <MobileFormatBubble onFormat={(cmd) => {
+        if (cmd === 'polish') {
+          setMobileDrawer('ai');
+        } else {
+          (window as any).__chapterFormat?.(cmd);
+        }
+      }} />
+
     </div>
   );
 }
