@@ -312,7 +312,10 @@ export default function ProjectDetail() {
             ← 返回
           </button>
           <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500 text-white font-mono shrink-0">v2</span>
             <h1 className="text-sm sm:text-base font-bold text-gray-800 truncate">{project.title}</h1>
+            </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {/* Chapter actions */}
