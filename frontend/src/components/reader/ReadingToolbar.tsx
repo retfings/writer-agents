@@ -61,7 +61,7 @@ export default function ReadingToolbar({
     // Minimal focus mode bar - just exit button
     return (
       <div className={`border-b ${bgColor} transition-colors`}>
-        <div className="max-w-[720px] mx-auto px-4 py-1.5 flex items-center justify-end">
+        <div className="px-4 py-1.5 flex items-center justify-end">
           <button
             onClick={onToggleFocus}
             className={`text-xs px-2.5 py-1 rounded ${textColor} hover:bg-gray-100 transition`}
@@ -76,7 +76,7 @@ export default function ReadingToolbar({
 
   return (
     <div className={`border-b ${bgColor} transition-colors`}>
-      <div className="max-w-[720px] mx-auto px-4 py-2 flex items-center justify-between">
+      <div className="px-4 py-2 flex items-center justify-between">
         {/* Left: sidebar toggles + formatting */}
         <div className="flex items-center gap-0.5">
           <button onClick={onToggleLeft} className={`text-xs px-1.5 py-1 rounded ${textColor} hover:bg-gray-100`} title="大纲">

@@ -23,7 +23,7 @@ export default function ChapterNav({ chapters, currentNumber, onNavigate, theme 
 
   return (
     <div className={`border-b ${borderColor}`}>
-      <div className="max-w-[720px] mx-auto px-4 py-2.5 flex items-center justify-between">
+      <div className="px-4 py-2.5 flex items-center justify-between">
         <button
           onClick={() => prev && onNavigate(prev)}
           disabled={!prev}

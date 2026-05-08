@@ -190,7 +190,7 @@ export default function ChapterContent({
 
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-[720px] mx-auto px-5 sm:px-8 py-6 sm:py-10">
+        <div className="px-5 sm:px-8 py-6 sm:py-10">
           {/* Chapter header */}
           <div className="mb-5 sm:mb-6 text-center">
             <h1 className="text-xl sm:text-2xl font-bold mb-2 leading-relaxed" style={{ fontSize: `${fontSize + 6}px` }}>
