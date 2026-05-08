@@ -33,7 +33,7 @@ export default function ForeshadowingPanel({ items, chapterTitles, onAdd, onTogg
   const revealed = items.filter(i => i.status === 'revealed');
 
   return (
-    <div className="flex flex-col h-full p-3">
+    <div className="flex flex-col h-full p-3 select-none">
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-gray-800 text-sm">🔮 伏笔线索</h3>
         <button

@@ -41,7 +41,7 @@ export default function WorldNotes({ notes, onAdd, onDelete }: Props) {
   const filtered = filter ? notes.filter(n => n.category === filter) : notes;
 
   return (
-    <div className="flex flex-col h-full p-3">
+    <div className="flex flex-col h-full p-3 select-none">
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-gray-800 text-sm">🌍 世界观笔记</h3>
         <button

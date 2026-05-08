@@ -37,7 +37,7 @@ export default function CharacterPanel({ characters, onAdd, onExtract }: Props) 
   };
 
   return (
-    <div className="flex flex-col h-full p-3">
+    <div className="flex flex-col h-full p-3 select-none">
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-gray-800 text-sm">👤 人物角色</h3>
         <div className="flex items-center gap-2">

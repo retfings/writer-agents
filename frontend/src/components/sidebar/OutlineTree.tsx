@@ -38,7 +38,7 @@ export default function OutlineTree({
     : chapters;
 
   return (
-    <div className="flex flex-col h-full p-3">
+    <div className="flex flex-col h-full p-3 select-none">
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-gray-800 text-sm">📑 章节目录</h3>
         <span className="text-xs text-gray-400">{chapters.length} 章</span>
