@@ -135,16 +135,43 @@ router.post('/extract/:projectId/stream', async (req: Request, res: Response) =>
     'X-Accel-Buffering': 'no',
   });
 
+  // Disable Nagle's algorithm to flush SSE events immediately
+  if ((res as any).socket) {
+    (res as any).socket.setNoDelay(true);
+  }
+  // Flush headers immediately
+  res.flushHeaders?.();
+
   let aborted = false;
-  req.on('close', () => { aborted = true; });
+  let bytesWritten = 0;
+  req.on('close', () => {
+    console.log('[Extract] req close event fired. bytes written:', bytesWritten);
+    aborted = true;
+  });
+  req.on('error', (err) => {
+    console.log('[Extract] req error:', err.message);
+    aborted = true;
+  });
+  res.on('close', () => {
+    console.log('[Extract] res close event fired. bytes written:', bytesWritten);
+  });
 
   const send = (event: string, data: any) => {
     if (aborted) return;
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    bytesWritten += Buffer.byteLength(payload);
+    const ok = res.write(payload);
+    console.log('[Extract] send', event, 'bytes:', Buffer.byteLength(payload), 'drain:', !ok);
+    // If write buffer is full, wait for drain
+    if (!ok) {
+      return new Promise<void>((resolve) => {
+        res.once('drain', () => resolve());
+      });
+    }
   };
 
   const chapters = db.prepare(`
-    SELECT id, number, title, content FROM chapters
+    SELECT id, number, title, content, outline FROM chapters
     WHERE project_id = ? AND id IN (${chapterIds.map(() => '?').join(',')})
     ORDER BY number ASC
   `).all(req.params.projectId, ...chapterIds) as any[];
@@ -158,17 +185,17 @@ router.post('/extract/:projectId/stream', async (req: Request, res: Response) =>
     console.log('[Extract] Starting processing', chapters.length, 'chapters');
     const total = chapters.length;
 
-    // Keep-alive heartbeat every 5s to prevent proxy/browser idle disconnect
+    // Keep-alive heartbeat every 3s to prevent proxy/browser idle disconnect
     const heartbeat = setInterval(() => {
       if (aborted) return;
       res.write(':keepalive\n\n');
-    }, 5000);
+    }, 3000);
 
     for (let i = 0; i < total; i++) {
       if (aborted) { console.log('[Extract] Aborted'); break; }
       const ch = chapters[i];
 
-      send('progress', {
+      await send('progress', {
         current: i + 1,
         total,
         chapterId: ch.id,
@@ -177,12 +204,12 @@ router.post('/extract/:projectId/stream', async (req: Request, res: Response) =>
       });
 
       try {
-        const chars = await extractFromContent(project.title, ch.content, ch.number);
+        const chars = await extractFromContent(project.title, ch.content, ch.number, ch.outline);
         console.log('[Extract] Ch', ch.number, 'found', chars.length, 'characters:', chars.map(c => c.name).join(', '));
         for (const c of chars) {
           if (aborted) break;
           const existing = existingChars.find((e: any) => e.name === c.name);
-          send('character', {
+          await send('character', {
             ...c,
             chapterNumber: ch.number,
             chapterId: ch.id,
@@ -198,13 +225,13 @@ router.post('/extract/:projectId/stream', async (req: Request, res: Response) =>
           });
         }
       } catch (err: any) {
-        send('warn', { chapterId: ch.id, message: `第${ch.number}章分析失败: ${err.message}` });
+        await send('warn', { chapterId: ch.id, message: `第${ch.number}章分析失败: ${err.message}` });
       }
     }
 
     clearInterval(heartbeat);
 
-    send('done', { message: '分析完成' });
+    await send('done', { message: '分析完成' });
     console.log('[Extract] Done');
     res.end();
   };
@@ -225,7 +252,7 @@ router.post('/extract/:projectId/stream', async (req: Request, res: Response) =>
   });
 });
 
-async function extractFromContent(title: string, content: string, chapterNum: number): Promise<any[]> {
+async function extractFromContent(title: string, content: string, chapterNum: number, outline?: string): Promise<any[]> {
   const { default: OpenAI } = await import('openai');
   const client = new OpenAI({
     apiKey: process.env.DEEPSEEK_API_KEY || '',
@@ -233,9 +260,20 @@ async function extractFromContent(title: string, content: string, chapterNum: nu
   });
 
   const maxLen = 8000;
-  const text = content.length > maxLen
+  let text = content.length > maxLen
     ? content.slice(0, maxLen / 2) + '\n\n...\n\n' + content.slice(-maxLen / 2)
     : content;
+
+  // If body text is empty but outline has a summary, use that as fallback
+  if (!text.trim() && outline) {
+    text = `[本章大纲] ${outline}`;
+  }
+
+  // Skip chapters with no text at all (not written yet)
+  if (!text.trim()) {
+    console.log('[Extract] Ch', chapterNum, 'skipped: no content');
+    return [];
+  }
 
   const response = await client.chat.completions.create({
     model: 'deepseek-chat',
