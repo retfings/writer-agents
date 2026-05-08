@@ -97,7 +97,7 @@ export default function CharacterExtractModal({ open, onClose, projectId, chapte
     try {
       const res = await fetch(`/api/characters/extract/${projectId}/stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('novelflow-token')}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({ chapterIds: [...selectedChapters] }),
         signal: controller.signal,
       });
