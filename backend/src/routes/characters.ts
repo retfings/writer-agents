@@ -145,23 +145,19 @@ router.post('/extract/:projectId/stream', (req: Request, res: Response) => {
 
   let aborted = false;
   let bytesWritten = 0;
-  req.on('close', () => {
-    console.log('[Extract] req close event fired. bytes written:', bytesWritten);
+  res.on('close', () => {
+    console.log('[Extract] res close (response stream ended). bytes written:', bytesWritten);
     aborted = true;
   });
   req.on('error', (err) => {
     console.log('[Extract] req error:', err.message);
     aborted = true;
   });
-  res.on('close', () => {
-    console.log('[Extract] res close event fired. bytes written:', bytesWritten);
-  });
 
   const send = (event: string, data: any): boolean => {
     if (aborted) return false;
     const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
     bytesWritten += Buffer.byteLength(payload);
-    console.log('[Extract] send', event, 'bytes:', Buffer.byteLength(payload), 'total:', bytesWritten);
     return res.write(payload);
   };
 
