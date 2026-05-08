@@ -89,6 +89,11 @@ export interface WriteRequest {
   chapterNumber: number;
   outline?: ChapterOutline;
   previousContent?: string;
+  previousChapterEnd?: string;
+  previousChapterSummary?: string;
+  previousCliffhanger?: string;
+  hangingHooks?: string[];
+  pacingContext?: Record<string, any>;
   characters?: Character[];
   style?: string;
   instructions?: string;

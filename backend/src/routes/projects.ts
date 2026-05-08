@@ -28,7 +28,7 @@ router.get('/', (req: Request, res: Response) => {
 // Create project
 router.post('/', (req: Request, res: Response) => {
   const user = (req as any).user;
-  const { title, genre, synopsis, targetWords, modelProvider } = req.body;
+  const { title, genre, synopsis, targetWords, totalChapters, modelProvider } = req.body;
 
   if (!title) {
     res.status(400).json({ error: '项目标题不能为空' });
@@ -41,9 +41,9 @@ router.post('/', (req: Request, res: Response) => {
   const agentConfig = getAgentConfigs(provider);
 
   db.prepare(`
-    INSERT INTO projects (id, user_id, title, genre, synopsis, target_words, agent_config, model_provider)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, user.id, title, genre || 'urban', synopsis || '', targetWords || 1000000, JSON.stringify(agentConfig), provider);
+    INSERT INTO projects (id, user_id, title, genre, synopsis, target_words, total_chapters, agent_config, model_provider)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, user.id, title, genre || 'urban', synopsis || '', targetWords || 500000, totalChapters || 150, JSON.stringify(agentConfig), provider);
 
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as any;
   res.json({

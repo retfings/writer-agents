@@ -26,6 +26,8 @@ export default function Dashboard() {
   const [genre, setGenre] = useState('urban');
   const [synopsis, setSynopsis] = useState('');
   const [fullSynopsis, setFullSynopsis] = useState('');
+  const [targetWords, setTargetWords] = useState(500000);
+  const [totalChapters, setTotalChapters] = useState(150);
   const [error, setError] = useState('');
 
   useEffect(() => { loadProjects(); }, []);
@@ -66,7 +68,7 @@ export default function Dashboard() {
     e.preventDefault();
     if (!title.trim()) return;
     try {
-      const { project } = await projects.create({ title, genre, synopsis: fullSynopsis || synopsis, targetWords: 1000000 });
+      const { project } = await projects.create({ title, genre, synopsis: fullSynopsis || synopsis, targetWords, totalChapters });
       setShowCreate(false);
       setStoryIdea('');
       setAiResult(null);
@@ -152,7 +154,7 @@ export default function Dashboard() {
                     🚀 一键生成
                   </button>
                   <button onClick={resetForm} className="text-gray-500 px-4 py-2.5 rounded-lg text-sm hover:bg-gray-100 min-h-[44px] sm:min-h-[40px]">取消</button>
-                  <button onClick={() => { setAiStep('form'); setTitle(''); setSynopsis(''); setGenre('urban'); }} className="text-gray-400 px-3 py-2.5 rounded-lg text-xs hover:bg-gray-50 ml-auto min-h-[44px] sm:min-h-[40px]">手动创建 →</button>
+                  <button onClick={() => { setAiStep('form'); setTitle(''); setSynopsis(''); setGenre('urban'); setTargetWords(500000); setTotalChapters(150); }} className="text-gray-400 px-3 py-2.5 rounded-lg text-xs hover:bg-gray-50 ml-auto min-h-[44px] sm:min-h-[40px]">手动创建 →</button>
                 </div>
               </div>
             )}
@@ -202,20 +204,31 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Genre */}
-                {aiResult && (
+                {/* Manual Title Input (when no AI result) */}
+                {!aiResult && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      🤖 AI 推荐分类：<span className="text-orange-500">{genreNames[aiResult.genre] || aiResult.genre}</span>
-                    </label>
-                    <select value={genre} onChange={e => setGenre(e.target.value)}
-                      className="w-full px-4 py-3 sm:py-2.5 border border-gray-300 rounded-lg outline-none text-sm bg-white">
-                      {Object.entries(genreNames).map(([k, v]) => (
-                        <option key={k} value={k}>{v}</option>
-                      ))}
-                    </select>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">书名</label>
+                    <input
+                      type="text" value={title}
+                      onChange={e => setTitle(e.target.value)}
+                      className="w-full px-4 py-3 sm:py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 text-base sm:text-sm"
+                      required placeholder="输入书名"
+                    />
                   </div>
                 )}
+
+                {/* Genre */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    分类
+                  </label>
+                  <select value={genre} onChange={e => setGenre(e.target.value)}
+                    className="w-full px-4 py-3 sm:py-2.5 border border-gray-300 rounded-lg outline-none text-sm bg-white">
+                    {Object.entries(genreNames).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
 
                 {/* Synopsis */}
                 {aiResult && (
@@ -237,6 +250,43 @@ export default function Dashboard() {
                     </div>
                   </>
                 )}
+
+                {/* Target config */}
+                <div className="bg-gray-50 rounded-lg p-3 sm:p-4 space-y-3">
+                  <p className="text-xs text-gray-500 font-medium">⚙️ 生成配置</p>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-500 mb-1">目标总字数</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={targetWords / 10000}
+                          onChange={e => { const v = Number(e.target.value); if (v > 0) setTargetWords(v * 10000); }}
+                          className="w-20 px-3 py-2 sm:py-1.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 text-sm text-center"
+                          min={1} max={1000}
+                        />
+                        <span className="text-sm text-gray-400">万字</span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-500 mb-1">生成章数</label>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={totalChapters}
+                          onChange={e => setTotalChapters(Number(e.target.value))}
+                          className="px-3 py-2 sm:py-1.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 text-sm bg-white"
+                        >
+                          {[50, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000].map(n => (
+                            <option key={n} value={n}>{n} 章</option>
+                          ))}
+                        </select>
+                        <span className="text-xs text-gray-400">
+                          约 {(targetWords / totalChapters).toFixed(0)} 字/章
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Tags & Selling Points (info only) */}
                 {aiResult?.tags && aiResult.tags.length > 0 && (

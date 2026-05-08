@@ -31,9 +31,10 @@ export class AgentOrchestrator {
     genre: string;
     synopsis: string;
     targetWords: number;
+    totalChapters?: number;
   }): Promise<{ outline: string; chapters: ChapterOutline[] }> {
-    // Cap at 500 chapters to avoid timeout/memory issues
-    const totalChapters = Math.min(Math.ceil(context.targetWords / 3000), 500);
+    // Use specified chapter count or calculate from word count
+    const totalChapters = Math.min(context.totalChapters || Math.ceil(context.targetWords / 3000), 1000);
     
     const result = await this.planner.execute({
       task: 'outline',
@@ -95,9 +96,14 @@ export class AgentOrchestrator {
       outline: req.outline?.summary || '',
       characters: req.characters || [],
       previousContent: req.previousContent || '',
+      previousChapterEnd: req.previousChapterEnd || '',
+      previousChapterSummary: req.previousChapterSummary || '',
+      previousCliffhanger: req.previousCliffhanger || '',
+      hangingHooks: req.hangingHooks || [],
       style: req.style || '快节奏爽文',
       estimatedWords: req.outline?.estimatedWords || 3000,
       instructions: req.instructions || '',
+      ...(req.pacingContext || {}),
     });
     results.push(writeResult);
 

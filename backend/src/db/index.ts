@@ -39,6 +39,7 @@ function initSchema(db: Database.Database): void {
       genre TEXT NOT NULL DEFAULT 'urban',
       synopsis TEXT DEFAULT '',
       target_words INTEGER DEFAULT 1000000,
+      total_chapters INTEGER DEFAULT 150,
       status TEXT DEFAULT 'draft',
       agent_config TEXT DEFAULT '[]',
       model_provider TEXT DEFAULT 'deepseek',
@@ -164,6 +165,13 @@ function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_suspense_project ON suspense(project_id);
     CREATE INDEX IF NOT EXISTS idx_story_structures_project ON story_structures(project_id);
   `);
+
+  // Migration: add total_chapters to projects (safe to ignore if exists)
+  try {
+    db.exec(`ALTER TABLE projects ADD COLUMN total_chapters INTEGER DEFAULT 150`);
+  } catch (e: any) {
+    if (!e.message.includes('duplicate column')) throw e;
+  }
 }
 
 export function closeDb(): void {

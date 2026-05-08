@@ -11,6 +11,16 @@ router.use(authMiddleware);
 // orchestrator cache per project
 const orchestrators = new Map<string, AgentOrchestrator>();
 
+function inferPacing(content: string): string {
+  if (!content) return '';
+  // Rough heuristic: more action verbs/movement = intense pace
+  const actionWords = ['冲','跑','跳','杀','死','血','追','逃','吼','撞','摔','炸'];
+  const count = actionWords.filter(w => content.includes(w)).length;
+  if (count > 8) return 'intense';
+  if (count < 3) return 'slow';
+  return 'medium';
+}
+
 function getOrchestrator(projectId: string): AgentOrchestrator {
   if (!orchestrators.has(projectId)) {
     const db = getDb();
@@ -101,6 +111,7 @@ router.post('/:projectId/generate-outline', async (req: Request, res: Response) 
       genre: project.genre as string,
       synopsis: project.synopsis as string,
       targetWords: project.target_words as number,
+      totalChapters: project.total_chapters as number,
     });
 
     // Save chapters to DB
@@ -146,10 +157,47 @@ router.post('/:projectId/write', async (req: Request, res: Response) => {
     'SELECT * FROM chapters WHERE project_id = ? AND number = ?'
   ).get(req.params.projectId, chapterNumber) as any;
 
-  // Get previous chapter content
-  const prevChapter = db.prepare(
-    'SELECT content FROM chapters WHERE project_id = ? AND number = ? ORDER BY number DESC LIMIT 1'
-  ).get(req.params.projectId, chapterNumber - 1) as any;
+  // Get previous chapters for context (last 3 with content)
+  const prevChapters = db.prepare(
+    'SELECT number, title, content, outline FROM chapters WHERE project_id = ? AND number < ? AND content IS NOT NULL AND content != \'\' ORDER BY number DESC LIMIT 3'
+  ).all(req.params.projectId, chapterNumber) as any[];
+  const prevChapter = prevChapters[0] || null;
+
+  // Build comprehensive context
+  const previousContent = prevChapters.map(c => c.content).join('\n').slice(-2000);
+  const previousChapterEnd = prevChapter?.content?.slice(-300) || '';
+  const previousChapterSummary = prevChapter?.outline || '';
+
+  // Extract cliffhanger from last chapter's final paragraph
+  let previousCliffhanger = '';
+  if (prevChapter?.content) {
+    const ending = prevChapter.content.slice(-400);
+    const sentences = ending.split(/[。！？\n]/).filter(Boolean);
+    previousCliffhanger = sentences.slice(-3).join('。').slice(0, 200);
+  }
+
+  // Collect unresolved foreshadowing
+  const hangingHooks: string[] = [];
+  const foreshadowings = db.prepare(
+    'SELECT title, description FROM foreshadowing WHERE project_id = ? AND status = \'pending\' ORDER BY created_at ASC LIMIT 5'
+  ).all(req.params.projectId) as any[];
+  foreshadowings.forEach((f: any) => {
+    hangingHooks.push(`${f.title}：${f.description?.slice(0, 80) || ''}`);
+  });
+
+  // Determine pacing context
+  const totalChapters = db.prepare(
+    'SELECT MAX(number) as total FROM chapters WHERE project_id = ?'
+  ).get(req.params.projectId) as any;
+  const totalCount = totalChapters?.total || chapterNumber;
+  const prevPacingType = chapterNumber > 1 ? inferPacing(prevChapter?.content || '') : '';
+
+  const pacingContext = {
+    chapterNumber,
+    totalChapters: totalCount,
+    prevPacingType,
+    tensionLevel: chapterNumber <= 3 ? 'high' : chapterNumber <= 5 ? 'medium' : 'normal',
+  };
 
   // Get characters
   const characters = db.prepare(
@@ -170,7 +218,12 @@ router.post('/:projectId/write', async (req: Request, res: Response) => {
         povCharacter: '',
         estimatedWords: 3000,
       } : undefined,
-      previousContent: prevChapter?.content,
+      previousContent,
+      previousChapterEnd,
+      previousChapterSummary,
+      previousCliffhanger,
+      hangingHooks,
+      pacingContext,
       characters: characters.map(c => ({
         id: c.id,
         projectId: c.project_id,

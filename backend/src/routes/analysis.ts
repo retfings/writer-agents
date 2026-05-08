@@ -102,6 +102,8 @@ router.post('/extract/:projectId/stream', (req: Request, res: Response) => {
   const db = getDb();
   const { chapterIds, types } = req.body as { chapterIds: string[]; types: string[] };
 
+  console.log('[Analysis] Request received. chapters:', chapterIds?.length, 'types:', types);
+
   const project = db.prepare('SELECT id, title FROM projects WHERE id = ? AND user_id = ?')
     .get(req.params.projectId, user.id) as any;
   if (!project) { res.status(404).json({ error: '项目不存在' }); return; }
@@ -138,17 +140,19 @@ router.post('/extract/:projectId/stream', (req: Request, res: Response) => {
 
   if (!chapters.length) { send('error', { message: '未找到章节' }); res.end(); return; }
 
+  console.log('[Analysis] Found', chapters.length, 'chapters. Starting async processing...');
   const isAborted = () => aborted;
   const title = project.title;
 
   // Start async processing
   processAnalysis(title, chapters, types, send, isAborted)
     .then(() => {
+      console.log('[Analysis] Processing complete. Sending done.');
       if (!aborted) send('done', { message: '分析完成', types });
       res.end();
     })
     .catch((err: any) => {
-      console.error('[Analysis] Fatal error:', err.message);
+      console.error('[Analysis] Fatal error:', err.message, err.stack);
       if (!aborted) send('error', { message: err.message });
       res.end();
     });
@@ -162,6 +166,8 @@ async function processAnalysis(
   isAborted: () => boolean,
 ): Promise<void> {
   const total = chapters.length;
+  console.log('[Analysis] processAnalysis started. chapters:', total, 'types:', types);
+  let totalItems = 0;
 
   // Heartbeat
   const heartbeat = setInterval(() => {
@@ -186,6 +192,8 @@ async function processAnalysis(
       if (isAborted()) break;
       try {
         const items = await extractByType(title, text, ch, type);
+        console.log('[Analysis] Ch', ch.number, type, 'found', items.length, 'items');
+        totalItems += items.length;
         for (const item of items) {
           if (isAborted()) break;
           send(type, { ...item, chapterId: ch.id, chapterNumber: ch.number });
@@ -197,6 +205,7 @@ async function processAnalysis(
   }
 
   clearInterval(heartbeat);
+  console.log('[Analysis] processAnalysis done. total items:', totalItems, 'aborted:', isAborted());
 }
 
 async function extractByType(title: string, text: string, ch: any, type: string): Promise<any[]> {

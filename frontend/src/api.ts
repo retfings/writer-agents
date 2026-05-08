@@ -47,7 +47,7 @@ export const auth = {
 export const projects = {
   list: () => request<{ projects: any[] }>('/projects'),
   get: (id: string) => request<{ project: any }>(`/projects/${id}`),
-  create: (data: { title: string; genre?: string; synopsis?: string; targetWords?: number; modelProvider?: string }) =>
+  create: (data: { title: string; genre?: string; synopsis?: string; targetWords?: number; totalChapters?: number; modelProvider?: string }) =>
     request<{ project: any }>('/projects', {
       method: 'POST',
       body: JSON.stringify(data),
