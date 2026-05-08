@@ -167,8 +167,9 @@ export default function CharacterExtractModal({ open, onClose, projectId, chapte
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         setWarnings(prev => [...prev, `提取失败: ${err.message}`]);
-        setPhase('review');
       }
+      // Show whatever results we have, even on abort
+      setPhase('review');
     }
   }, [projectId, selectedChapters]);
 

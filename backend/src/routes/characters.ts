@@ -158,6 +158,12 @@ router.post('/extract/:projectId/stream', async (req: Request, res: Response) =>
     console.log('[Extract] Starting processing', chapters.length, 'chapters');
     const total = chapters.length;
 
+    // Keep-alive heartbeat every 5s to prevent proxy/browser idle disconnect
+    const heartbeat = setInterval(() => {
+      if (aborted) return;
+      res.write(':keepalive\n\n');
+    }, 5000);
+
     for (let i = 0; i < total; i++) {
       if (aborted) { console.log('[Extract] Aborted'); break; }
       const ch = chapters[i];
@@ -195,6 +201,8 @@ router.post('/extract/:projectId/stream', async (req: Request, res: Response) =>
         send('warn', { chapterId: ch.id, message: `第${ch.number}章分析失败: ${err.message}` });
       }
     }
+
+    clearInterval(heartbeat);
 
     send('done', { message: '分析完成' });
     console.log('[Extract] Done');
