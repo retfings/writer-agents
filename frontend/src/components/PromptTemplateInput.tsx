@@ -222,6 +222,28 @@ export const PROMPT_TEMPLATES: Template[] = [
 本书卖点：游戏爽文 + 神豪元素 + 校园日常 + 身份反差。`,
     color: 'bg-teal-50 border-teal-200 text-teal-700',
   },
+  {
+    id: 'game-horror',
+    icon: '🔪',
+    label: '恐怖游戏',
+    desc: '诡异游戏降临，死亡即真实死亡',
+    prompt: `写一个番茄平台惊悚悬疑爽文：
+
+某天深夜，主角【请填写姓名】的手机弹出一条推送——「恭喜你被选中参与《诡界》内测，通关奖励：实现任意一个愿望。」
+
+他没当回事，点了下载。
+
+第一晚，他进入游戏——一座废弃的精神病院。任务是活过72小时。NPC护士对着空床位微笑：「林医生，3号房的小女孩又在哭，你去看看。」推开3号门，床上坐着一个没有脸的小女孩。
+
+他侥幸通关，回到现实——但第二天新闻头条：「某某小区一男子在睡梦中离奇死亡，死前面部扭曲仿佛受到极度惊吓。」那个人，是游戏里在精神病院第一个死的玩家。
+
+游戏里的死亡，就是真实的死亡。
+
+更可怕的是：游戏的副本正在和现实融合。学校里出现了游戏中的血字，地铁隧道变成了游戏的迷宫副本。他必须在每一个副本中活下来，同时追查这款游戏背后的真相——那些失踪的玩家去了哪里？最终奖励的「愿望」到底是恩赐还是陷阱？幕后黑手到底是人是鬼？
+
+本书卖点：游戏恐怖副本 + 现实悬疑追凶 + 强逻辑推理 + 主角智商在线。每个副本独立案件，串联主线大阴谋。`,
+    color: 'bg-gray-50 border-gray-300 text-gray-800',
+  },
 ];
 
 interface Props {
@@ -339,7 +361,7 @@ export default function PromptTemplateInput({ value, onChange, onSubmit, error }
       <div className="flex items-start gap-2">
         <span className="text-[11px] text-gray-400 shrink-0 mt-1">模板：</span>
         <div className="flex flex-wrap gap-1.5 flex-1">
-          {PROMPT_TEMPLATES.slice(0, 6).map(t => (
+          {PROMPT_TEMPLATES.slice(0, 7).map(t => (
             <button
               key={t.id}
               onClick={() => applyTemplate(t)}
@@ -360,7 +382,7 @@ export default function PromptTemplateInput({ value, onChange, onSubmit, error }
       {/* Expanded templates grid */}
       {showTemplates && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 animate-fadeIn">
-          {PROMPT_TEMPLATES.slice(6).map(t => (
+          {PROMPT_TEMPLATES.slice(7).map(t => (
             <button
               key={t.id}
               onClick={() => applyTemplate(t)}
