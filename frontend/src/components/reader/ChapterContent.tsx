@@ -8,7 +8,8 @@ interface Props {
   outline?: string;
   fontSize?: number;
   theme?: 'light' | 'dark' | 'sepia';
-  autoSaveInterval?: number; // seconds, 0 = disable auto-save
+  autoSaveInterval?: number;
+  lastSavedAt?: Date | null;
   onSave?: (content: string) => Promise<void>;
 }
 
@@ -16,20 +17,35 @@ export default function ChapterContent({
   title, content, wordCount: _wordCount, status, outline,
   fontSize = 16, theme = 'light',
   autoSaveInterval = 3,
+  lastSavedAt,
   onSave,
 }: Props) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [text, setText] = useState(content);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
-  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveRef = useRef(onSave);
   saveRef.current = onSave;
 
-  // Sync external content changes (e.g. chapter switch, AI rewrite)
   useEffect(() => {
     setText(content);
     setSaveStatus('saved');
+    setLastSavedTime(null);
   }, [content]);
+
+  useEffect(() => {
+    if (lastSavedAt) setLastSavedTime(lastSavedAt);
+  }, [lastSavedAt]);
+
+  const getTimeAgo = (date: Date) => {
+    const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (secs < 10) return '刚刚';
+    if (secs < 60) return `${secs}秒前`;
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return `${mins}分钟前`;
+    return `${Math.floor(mins / 60)}小时前`;
+  };
 
   const doSave = useCallback(async (value: string) => {
     if (!saveRef.current) return;
@@ -37,7 +53,7 @@ export default function ChapterContent({
     try {
       await saveRef.current(value);
       setSaveStatus('saved');
-      setLastSaved(new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      setLastSavedTime(new Date());
     } catch {
       setSaveStatus('error');
     }
@@ -47,17 +63,43 @@ export default function ChapterContent({
     const newText = e.target.value;
     setText(newText);
     setSaveStatus('unsaved');
-
     if (timerRef.current) clearTimeout(timerRef.current);
-
     if (autoSaveInterval > 0) {
-      timerRef.current = setTimeout(() => {
-        doSave(newText);
-      }, autoSaveInterval * 1000);
+      timerRef.current = setTimeout(() => doSave(newText), autoSaveInterval * 1000);
     }
   };
 
-  // Manual save via Ctrl+S
+  const applyFormat = (cmd: 'bold' | 'italic' | 'quote') => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selected = text.substring(start, end);
+    const before = text.substring(0, start);
+    const after = text.substring(end);
+
+    let replacement: string;
+    switch (cmd) {
+      case 'bold': replacement = `**${selected || '加粗文字'}**`; break;
+      case 'italic': replacement = `*${selected || '斜体文字'}*`; break;
+      case 'quote': replacement = `> ${selected || '引用内容'}`; break;
+    }
+
+    const newText = before + replacement + after;
+    setText(newText);
+    // Trigger deferred save
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (autoSaveInterval > 0) {
+      timerRef.current = setTimeout(() => doSave(newText), autoSaveInterval * 1000);
+    }
+    // Restore focus and selection
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(start, start + replacement.length);
+    });
+  };
+
+  // Ctrl+S manual save
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -70,7 +112,12 @@ export default function ChapterContent({
     return () => window.removeEventListener('keydown', handler);
   }, [text, doSave]);
 
-  // Cleanup timer on unmount
+  // Expose format function
+  useEffect(() => {
+    (window as any).__chapterFormat = applyFormat;
+    return () => { delete (window as any).__chapterFormat; };
+  }, [text]);
+
   useEffect(() => {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, []);
@@ -97,48 +144,47 @@ export default function ChapterContent({
   };
 
   const wordCountNow = text.length;
+  const statusLabels: Record<string, string> = {
+    done: '已完成',
+    review: '审校中',
+    draft: '草稿',
+    outline: '大纲',
+  };
 
   if (!content && !text) {
     return (
       <div className={`flex-1 flex flex-col items-center justify-center ${bgColors[theme]} ${textColors[theme]}`}>
         <p className="text-4xl mb-3">📝</p>
-        <p className="opacity-50 text-sm">该章节尚未写作</p>
+        <p className="opacity-40 text-sm">该章节尚未写作</p>
       </div>
     );
   }
 
   return (
     <div className={`flex-1 flex flex-col overflow-hidden ${bgColors[theme]} transition-colors duration-300`}>
-      {/* Save status bar */}
-      <div className={`flex items-center justify-between px-5 py-1.5 text-xs border-b ${borderColors[theme]} ${bgColors[theme]}`}>
+      {/* Minimal status bar */}
+      <div className={`flex items-center justify-between px-5 py-1 text-[11px] border-b ${borderColors[theme]} ${theme === 'dark' ? 'bg-gray-850' : theme === 'sepia' ? 'bg-[#ede0c3]' : 'bg-gray-50'}`}>
         <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center gap-1 ${
-            saveStatus === 'saved' ? 'text-green-500' :
-            saveStatus === 'saving' ? 'text-blue-500' :
-            saveStatus === 'unsaved' ? 'text-orange-500' :
-            'text-red-500'
-          }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${
-              saveStatus === 'saved' ? 'bg-green-500' :
-              saveStatus === 'saving' ? 'bg-blue-500 animate-pulse' :
-              saveStatus === 'unsaved' ? 'bg-orange-500' :
-              'bg-red-500'
-            }`} />
-            {saveStatus === 'saved' ? '已保存' :
-             saveStatus === 'saving' ? '保存中...' :
-             saveStatus === 'unsaved' ? '未保存' :
-             '保存失败'}
+          <span className={`
+            ${saveStatus === 'saved' ? 'text-green-600' :
+              saveStatus === 'saving' ? 'text-blue-500' :
+              saveStatus === 'unsaved' ? 'text-orange-500' :
+              'text-red-500'}
+          `}>
+            {saveStatus === 'saved' && lastSavedTime ? `✅ ${getTimeAgo(lastSavedTime)}保存` :
+             saveStatus === 'saved' ? '✅ 已保存' :
+             saveStatus === 'saving' ? '⏳ 保存中...' :
+             saveStatus === 'unsaved' ? '● 未保存' :
+             '⚠ 保存失败'}
           </span>
-          {lastSaved && saveStatus === 'saved' && (
-            <span className="text-gray-400">{lastSaved}</span>
-          )}
         </div>
-        <div className="flex items-center gap-3 text-gray-400">
+        <div className="flex items-center gap-3 opacity-60">
           <span>{wordCountNow.toLocaleString()} 字</span>
-          {autoSaveInterval > 0 && (
-            <span>自动保存：{autoSaveInterval}s</span>
-          )}
-          <span className="text-gray-300">Ctrl+S 手动保存</span>
+          <span className={`text-[10px] px-1.5 py-px rounded ${
+            theme === 'dark' ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-500'
+          }`}>
+            {statusLabels[status] || status}
+          </span>
         </div>
       </div>
 
@@ -146,45 +192,37 @@ export default function ChapterContent({
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-[720px] mx-auto px-5 sm:px-8 py-6 sm:py-10">
           {/* Chapter header */}
-          <div className="mb-6 sm:mb-8 text-center">
-            <h1 className="text-xl sm:text-2xl font-bold mb-2" style={{ fontSize: `${fontSize + 4}px`, lineHeight: '1.5' }}>
+          <div className="mb-5 sm:mb-6 text-center">
+            <h1 className="text-xl sm:text-2xl font-bold mb-2 leading-relaxed" style={{ fontSize: `${fontSize + 6}px` }}>
               {title}
             </h1>
             {outline && (
-              <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} italic`}>
+              <p className={`text-sm opacity-50 leading-relaxed italic`}>
                 {outline}
               </p>
             )}
-            <div className="flex items-center justify-center gap-3 mt-3">
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                status === 'done' ? 'bg-green-100 text-green-600' :
-                status === 'review' ? 'bg-blue-100 text-blue-600' :
-                status === 'draft' ? 'bg-yellow-100 text-yellow-600' :
-                'bg-gray-100 text-gray-500'
-              }`}>
-                {status === 'done' ? '✅ 已完成' : status === 'review' ? '🔍 审校中' : status === 'draft' ? '✍️ 草稿' : '📋 大纲'}
-              </span>
-            </div>
           </div>
 
           {/* Separator */}
-          <div className={`border-t ${borderColors[theme]} mb-6 sm:mb-8`} />
+          <div className={`border-t ${borderColors[theme]} mb-5 sm:mb-6`} />
 
           {/* Directly editable textarea */}
           <textarea
+            ref={textareaRef}
             value={text}
             onChange={handleChange}
-            className={`w-full min-h-[60vh] resize-none bg-transparent border-none outline-none font-serif leading-relaxed ${textColors[theme]} ${placeholderColors[theme]}`}
+            className={`w-full min-h-[60vh] resize-none bg-transparent border-none outline-none font-serif ${textColors[theme]} ${placeholderColors[theme]}`}
             style={{
               fontSize: `${fontSize}px`,
-              lineHeight: '2',
+              lineHeight: '1.75',
               textIndent: '2em',
             }}
             placeholder="在此编辑章节内容..."
+            spellCheck={false}
           />
 
-          {/* Bottom spacer */}
-          <div className="h-16" />
+          {/* Bottom breathing room */}
+          <div className="h-32" />
         </div>
       </div>
     </div>

@@ -121,7 +121,7 @@ export default function OutlineTree({
       {/* Chapter count at bottom */}
       {chapters.length > 0 && (
         <div className="text-[10px] text-gray-400 pt-2 border-t border-gray-100 mt-2">
-          总 {chapters.reduce((s, c) => s + c.wordCount, 0).toLocaleString()} 字
+          总 {(chapters.reduce((s, c) => s + (c.wordCount || 0), 0)).toLocaleString()} 字
         </div>
       )}
     </div>

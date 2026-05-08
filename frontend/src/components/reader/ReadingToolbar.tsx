@@ -11,6 +11,9 @@ interface Props {
   onToggleRight: () => void;
   autoSaveInterval: number;
   onAutoSaveIntervalChange: (seconds: number) => void;
+  focusMode: boolean;
+  onToggleFocus: () => void;
+  onFormat?: (cmd: 'bold' | 'italic' | 'quote') => void;
 }
 
 const AUTO_SAVE_OPTIONS = [
@@ -25,115 +28,114 @@ export default function ReadingToolbar({
   fontSize, onFontSizeChange, theme, onThemeChange,
   leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight,
   autoSaveInterval, onAutoSaveIntervalChange,
+  focusMode, onToggleFocus, onFormat,
 }: Props) {
-  const [showAutoSave, setShowAutoSave] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setShowAutoSave(false);
+        setShowSettings(false);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const themes: Array<{ key: 'light' | 'dark' | 'sepia'; icon: string; label: string }> = [
-    { key: 'light', icon: '☀️', label: '日间' },
-    { key: 'sepia', icon: '📜', label: '护眼' },
-    { key: 'dark', icon: '🌙', label: '夜间' },
-  ];
+  // Keyboard shortcut for focus mode
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && focusMode) {
+        onToggleFocus();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [focusMode, onToggleFocus]);
 
   const bgColor = theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
-  const textColor = theme === 'dark' ? 'text-gray-300' : 'text-gray-600';
+  const textColor = theme === 'dark' ? 'text-gray-300' : 'text-gray-500';
+
+  if (focusMode) {
+    // Minimal focus mode bar - just exit button
+    return (
+      <div className={`border-b ${bgColor} transition-colors`}>
+        <div className="max-w-[720px] mx-auto px-4 py-1.5 flex items-center justify-end">
+          <button
+            onClick={onToggleFocus}
+            className={`text-xs px-2.5 py-1 rounded ${textColor} hover:bg-gray-100 transition`}
+            title="退出专注模式 (Esc)"
+          >
+            🖋️ 退出专注
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`border-b ${bgColor} transition-colors`}>
       <div className="max-w-[720px] mx-auto px-4 py-2 flex items-center justify-between">
-        {/* Left: sidebar toggles */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={onToggleLeft}
-            className={`text-xs px-2 py-1 rounded ${textColor} hover:bg-gray-100 transition`}
-            title={leftCollapsed ? '显示大纲' : '隐藏大纲'}
-          >
+        {/* Left: sidebar toggles + formatting */}
+        <div className="flex items-center gap-0.5">
+          <button onClick={onToggleLeft} className={`text-xs px-1.5 py-1 rounded ${textColor} hover:bg-gray-100`} title="大纲">
             {leftCollapsed ? '📑' : '📑◀'}
           </button>
-          <button
-            onClick={onToggleRight}
-            className={`text-xs px-2 py-1 rounded ${textColor} hover:bg-gray-100 transition`}
-            title={rightCollapsed ? '显示AI助手' : '隐藏AI助手'}
-          >
+          <button onClick={onToggleRight} className={`text-xs px-1.5 py-1 rounded ${textColor} hover:bg-gray-100`} title="AI助手">
             {rightCollapsed ? '🤖' : '🤖▶'}
           </button>
+
+          <span className={`w-px h-4 mx-1 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'}`} />
+
+          {/* Basic formatting */}
+          <button onClick={() => onFormat?.('bold')} className={`text-xs px-1.5 py-1 rounded font-bold ${textColor} hover:bg-gray-100`} title="加粗 (Ctrl+B)">B</button>
+          <button onClick={() => onFormat?.('italic')} className={`text-xs px-1.5 py-1 rounded italic ${textColor} hover:bg-gray-100`} title="斜体 (Ctrl+I)">I</button>
+          <button onClick={() => onFormat?.('quote')} className={`text-xs px-1.5 py-1 rounded ${textColor} hover:bg-gray-100`} title="引用">❝</button>
         </div>
 
-        {/* Center: font size + auto-save */}
-        <div className="flex items-center gap-3">
+        {/* Center: focus + font */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onToggleFocus}
+            className={`text-xs px-2 py-1 rounded ${textColor} hover:bg-gray-100 transition`}
+            title="专注模式"
+          >
+            🖋️
+          </button>
           <div className="flex items-center gap-0.5">
-            <button
-              onClick={() => onFontSizeChange(Math.max(12, fontSize - 2))}
-              className={`text-xs px-2 py-1 rounded ${textColor} hover:bg-gray-100 transition`}
-              disabled={fontSize <= 12}
-            >
-              A⁻
-            </button>
-            <span className={`text-[10px] ${textColor} w-8 text-center`}>{fontSize}</span>
-            <button
-              onClick={() => onFontSizeChange(Math.min(24, fontSize + 2))}
-              className={`text-xs px-2 py-1 rounded ${textColor} hover:bg-gray-100 transition`}
-              disabled={fontSize >= 24}
-            >
-              A⁺
-            </button>
-          </div>
-
-          {/* Auto-save selector */}
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => setShowAutoSave(!showAutoSave)}
-              className={`text-[10px] px-1.5 py-0.5 rounded ${textColor} hover:bg-gray-100 transition flex items-center gap-0.5`}
-              title="自动保存间隔"
-            >
-              💾 {autoSaveInterval === 0 ? '手动' : `${autoSaveInterval}s`}
-            </button>
-            {showAutoSave && (
-              <div className={`absolute top-full mt-1 right-0 rounded-lg shadow-lg border ${bgColor} py-1 z-10`}>
-                {AUTO_SAVE_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => { onAutoSaveIntervalChange(opt.value); setShowAutoSave(false); }}
-                    className={`block w-full text-left px-3 py-1 text-xs whitespace-nowrap ${
-                      autoSaveInterval === opt.value
-                        ? 'text-orange-600 bg-orange-50'
-                        : `${textColor} hover:bg-gray-50`
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <button onClick={() => onFontSizeChange(Math.max(12, fontSize - 1))} className={`text-xs px-1.5 py-0.5 rounded ${textColor} hover:bg-gray-100`} disabled={fontSize <= 12}>A⁻</button>
+            <span className={`text-[10px] ${textColor} w-8 text-center tabular-nums`}>{fontSize}px</span>
+            <button onClick={() => onFontSizeChange(Math.min(24, fontSize + 1))} className={`text-xs px-1.5 py-0.5 rounded ${textColor} hover:bg-gray-100`} disabled={fontSize >= 24}>A⁺</button>
           </div>
         </div>
 
-        {/* Right: theme switcher */}
-        <div className="flex items-center gap-0.5">
-          {themes.map(t => (
-            <button
-              key={t.key}
-              onClick={() => onThemeChange(t.key)}
-              className={`text-xs px-2 py-1 rounded transition ${
-                theme === t.key
-                  ? 'bg-orange-100 text-orange-600'
-                  : `${textColor} hover:bg-gray-100`
-              }`}
-              title={t.label}
-            >
-              {t.icon}
-            </button>
-          ))}
+        {/* Right: theme + settings */}
+        <div className="flex items-center gap-0.5 relative" ref={menuRef}>
+          <button onClick={() => onThemeChange('light')} className={`text-xs px-1.5 py-1 rounded ${theme === 'light' ? 'bg-orange-100 text-orange-600' : `${textColor} hover:bg-gray-100`}`} title="日间">☀️</button>
+          <button onClick={() => onThemeChange('sepia')} className={`text-xs px-1.5 py-1 rounded ${theme === 'sepia' ? 'bg-orange-100 text-orange-600' : `${textColor} hover:bg-gray-100`}`} title="护眼">📜</button>
+          <button onClick={() => onThemeChange('dark')} className={`text-xs px-1.5 py-1 rounded ${theme === 'dark' ? 'bg-orange-100 text-orange-600' : `${textColor} hover:bg-gray-100`}`} title="夜间">🌙</button>
+
+          <span className={`w-px h-4 mx-0.5 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'}`} />
+
+          {/* Settings dropdown */}
+          <button onClick={() => setShowSettings(!showSettings)} className={`text-xs px-1.5 py-1 rounded ${textColor} hover:bg-gray-100`} title="设置">⚙️</button>
+          {showSettings && (
+            <div className={`absolute top-full right-0 mt-1 rounded-lg shadow-lg border ${bgColor} py-1 z-10 min-w-[120px]`}>
+              <div className="px-3 py-0.5 text-[10px] text-gray-400">自动保存间隔</div>
+              {AUTO_SAVE_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => { onAutoSaveIntervalChange(opt.value); setShowSettings(false); }}
+                  className={`block w-full text-left px-3 py-1 text-xs ${
+                    autoSaveInterval === opt.value ? 'text-orange-600 bg-orange-50' : `${textColor} hover:bg-gray-50`
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -12,6 +12,7 @@ interface ThreeColumnLayoutProps {
   onToggleRight?: () => void;
   hideLeft?: boolean;
   hideRight?: boolean;
+  focusMode?: boolean;
 }
 
 export default function ThreeColumnLayout({
@@ -20,6 +21,7 @@ export default function ThreeColumnLayout({
   leftCollapsed = false, rightCollapsed = false,
   onToggleLeft: _onToggleLeft, onToggleRight: _onToggleRight,
   hideLeft = false, hideRight = false,
+  focusMode = false,
 }: ThreeColumnLayoutProps) {
   const [isDraggingLeft, setIsDraggingLeft] = useState(false);
   const [isDraggingRight, setIsDraggingRight] = useState(false);
@@ -60,15 +62,18 @@ export default function ThreeColumnLayout({
     };
   }, [isDraggingLeft, isDraggingRight, handleMouseMove, handleMouseUp]);
 
+  const sidebarHidden = leftCollapsed || hideLeft || focusMode;
+  const aiHidden = rightCollapsed || hideRight || focusMode;
+
   return (
     <div className="flex h-full">
       {/* Left Panel */}
       {!hideLeft && (
         <div
           className={`border-r border-gray-200 bg-white overflow-hidden flex-shrink-0 transition-all duration-300 ${
-            leftCollapsed ? 'w-0 border-r-0 opacity-0' : ''
+            sidebarHidden ? 'w-0 border-r-0 opacity-0' : ''
           }`}
-          style={{ width: leftCollapsed ? 0 : lw }}
+          style={{ width: sidebarHidden ? 0 : lw }}
         >
           <div style={{ width: lw }} className="h-full overflow-y-auto">
             {left}
@@ -77,7 +82,7 @@ export default function ThreeColumnLayout({
       )}
 
       {/* Left resize handle */}
-      {!hideLeft && !leftCollapsed && (
+      {!hideLeft && !sidebarHidden && (
         <div
           className="w-1 cursor-col-resize bg-transparent hover:bg-orange-300 active:bg-orange-400 transition-colors flex-shrink-0 hidden lg:block"
           onMouseDown={() => setIsDraggingLeft(true)}
@@ -90,7 +95,7 @@ export default function ThreeColumnLayout({
       </div>
 
       {/* Right resize handle */}
-      {!hideRight && !rightCollapsed && (
+      {!hideRight && !aiHidden && (
         <div
           className="w-1 cursor-col-resize bg-transparent hover:bg-orange-300 active:bg-orange-400 transition-colors flex-shrink-0 hidden lg:block"
           onMouseDown={() => setIsDraggingRight(true)}
@@ -101,9 +106,9 @@ export default function ThreeColumnLayout({
       {!hideRight && (
         <div
           className={`border-l border-gray-200 bg-white overflow-hidden flex-shrink-0 transition-all duration-300 ${
-            rightCollapsed ? 'w-0 border-l-0 opacity-0' : ''
+            aiHidden ? 'w-0 border-l-0 opacity-0' : ''
           }`}
-          style={{ width: rightCollapsed ? 0 : rw }}
+          style={{ width: aiHidden ? 0 : rw }}
         >
           <div style={{ width: rw }} className="h-full overflow-y-auto">
             {right}

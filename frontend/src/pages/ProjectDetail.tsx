@@ -31,6 +31,8 @@ export default function ProjectDetail() {
   const [deletingAll, setDeletingAll] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   // Reading settings (persisted)
   const [fontSize, setFontSize] = useState(() => {
@@ -194,6 +196,7 @@ export default function ProjectDetail() {
   const handleSaveChapter = async (content: string) => {
     if (!activeChapter) return;
     await chapters.update(activeChapter.id, { content });
+    setLastSavedAt(new Date());
     await reloadChapters();
   };
 
@@ -392,6 +395,9 @@ export default function ProjectDetail() {
                   onToggleRight={() => setRightCollapsed(!rightCollapsed)}
                   autoSaveInterval={autoSaveInterval}
                   onAutoSaveIntervalChange={setAutoSaveInterval}
+                  focusMode={focusMode}
+                  onToggleFocus={() => setFocusMode(!focusMode)}
+                  onFormat={(cmd) => (window as any).__chapterFormat?.(cmd)}
                 />
                 <ChapterNav
                   chapters={chapterList.map(ch => ({ id: ch.id, number: ch.number, title: ch.title }))}
@@ -409,6 +415,7 @@ export default function ProjectDetail() {
                   theme={theme}
                   autoSaveInterval={autoSaveInterval}
                   onSave={handleSaveChapter}
+                  lastSavedAt={lastSavedAt}
                 />
               </div>
             ) : (
@@ -438,6 +445,7 @@ export default function ProjectDetail() {
           }
           leftCollapsed={leftCollapsed}
           rightCollapsed={rightCollapsed}
+          focusMode={focusMode}
         />
       </div>
 
