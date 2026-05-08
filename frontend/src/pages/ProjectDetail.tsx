@@ -562,6 +562,7 @@ export default function ProjectDetail() {
             deletingAll={deletingAll}
             characters={charList}
             onAddCharacter={handleAddCharacter}
+            onExtractCharacters={() => setShowExtractModal(true)}
             foreshadowing={foreshadowingList}
             chapterTitles={chapterTitles}
             onAddForeshadowing={handleAddForeshadowing}
