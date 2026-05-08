@@ -102,7 +102,7 @@ export default function Dashboard() {
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <span className="text-2xl sm:text-3xl shrink-0">🦞</span>
+            <span className="text-2xl sm:text-3xl shrink-0">✍️</span>
             <div className="min-w-0">
               <h1 className="text-lg sm:text-xl font-bold text-gray-800 truncate">NovelFlow</h1>
               <p className="text-[11px] sm:text-xs text-gray-500 hidden sm:block">多智能体 AI 写作平台</p>
@@ -127,7 +127,7 @@ export default function Dashboard() {
         {showCreate && (
           <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
             <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
-              {aiStep === 'prompt' ? '🤖 AI 智能起名' : aiStep === 'generating' ? '🦞 AI 正在创作...' : '📝 确认项目信息'}
+              {aiStep === 'prompt' ? '🤖 AI 智能起名' : aiStep === 'generating' ? '✍️ AI 正在创作...' : '📝 确认项目信息'}
             </h3>
 
             {/* Step 1: AI Prompt */}
@@ -160,7 +160,7 @@ export default function Dashboard() {
             {/* Step 2: Generating */}
             {aiStep === 'generating' && (
               <div className="flex items-center gap-3 py-6 justify-center">
-                <span className="animate-pulse text-2xl">🦞</span>
+                <span className="animate-pulse text-2xl">✍️</span>
                 <span className="text-gray-500 text-sm">AI 正在根据你的创意生成书名和简介...</span>
               </div>
             )}

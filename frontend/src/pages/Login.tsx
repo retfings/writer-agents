@@ -37,7 +37,7 @@ export default function Login() {
     <div className="h-full bg-gradient-to-br from-orange-50 via-red-50 to-rose-100 flex items-center justify-center px-4 py-6 sm:p-4 overflow-auto">
       <div className="w-full max-w-sm sm:max-w-md">
         <div className="text-center mb-6 sm:mb-8">
-          <div className="text-5xl sm:text-6xl mb-3 sm:mb-4">🦞</div>
+          <div className="text-5xl sm:text-6xl mb-3 sm:mb-4">✍️</div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">NovelFlow</h1>
           <p className="text-sm sm:text-base text-gray-500 mt-1.5 sm:mt-2">番茄小说 AI 写作平台 · 多智能体协作</p>
         </div>
