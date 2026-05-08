@@ -115,17 +115,29 @@ export default function CharacterExtractModal({ open, onClose, projectId, chapte
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
 
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        // SSE message boundary: double newline
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || ''; // keep incomplete message in buffer
 
-        for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            const eventType = line.slice(7).trim();
-            const dataLine = lines[lines.indexOf(line) + 1];
-            if (!dataLine?.startsWith('data: ')) continue;
-            const data = JSON.parse(dataLine.slice(6));
+        for (const part of parts) {
+          if (!part.trim()) continue;
+          let eventType = 'message';
+          let dataStr = '';
 
-            switch (eventType) {
+          for (const line of part.split('\n')) {
+            if (line.startsWith('event: ')) {
+              eventType = line.slice(7).trim();
+            } else if (line.startsWith('data: ')) {
+              dataStr = line.slice(6);
+            }
+          }
+
+          if (!dataStr) continue;
+
+          let data: any;
+          try { data = JSON.parse(dataStr); } catch { continue; }
+
+          switch (eventType) {
               case 'progress':
                 setProgress(data);
                 break;
@@ -150,7 +162,6 @@ export default function CharacterExtractModal({ open, onClose, projectId, chapte
                 break;
             }
           }
-        }
       }
       setPhase('review');
     } catch (err: any) {
