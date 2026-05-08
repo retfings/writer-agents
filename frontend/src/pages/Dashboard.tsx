@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { projects } from '../api';
+import PromptTemplateInput from '../components/PromptTemplateInput';
 
 const genreNames: Record<string, string> = {
   urban: '都市', fantasy: '玄幻', xianxia: '仙侠', scifi: '科幻',
@@ -130,24 +131,23 @@ export default function Dashboard() {
               {aiStep === 'prompt' ? '🤖 AI 智能起名' : aiStep === 'generating' ? '✍️ AI 正在创作...' : '📝 确认项目信息'}
             </h3>
 
-            {/* Step 1: AI Prompt */}
+            {/* Step 1: AI Prompt with templates */}
             {aiStep === 'prompt' && (
               <div className="space-y-3">
                 <p className="text-sm text-gray-600">
                   告诉 AI 你想写什么故事，它帮你起书名、写简介、选分类——
                   <span className="text-orange-500 font-medium">番茄平台商业文风格</span>
                 </p>
-                <textarea
+                <PromptTemplateInput
                   value={storyIdea}
-                  onChange={e => setStoryIdea(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 text-sm resize-none"
-                  rows={3}
-                  placeholder="例如：一个重生到2008年的程序员，利用前世记忆打造商业帝国，顺便谈个恋爱..."
+                  onChange={setStoryIdea}
+                  onSubmit={handleAiGenerate}
                 />
                 <div className="flex gap-3">
                   <button
                     onClick={handleAiGenerate}
-                    className="bg-orange-500 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-600 min-h-[44px] sm:min-h-[40px] flex items-center gap-1.5"
+                    disabled={!storyIdea.trim() || storyIdea.trim().length < 3}
+                    className="bg-orange-500 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-40 min-h-[44px] sm:min-h-[40px] flex items-center gap-1.5"
                   >
                     🚀 一键生成
                   </button>
