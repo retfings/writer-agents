@@ -3,6 +3,7 @@ import OutlineTree from './OutlineTree';
 import CharacterPanel from './CharacterPanel';
 import ForeshadowingPanel from './ForeshadowingPanel';
 import WorldNotes from './WorldNotes';
+import AnalysisPanel from './AnalysisPanel';
 
 interface ChapterItem {
   id: string;
@@ -38,6 +39,7 @@ interface NoteItem {
 }
 
 interface Props {
+  projectId: string;
   chapters: ChapterItem[];
   activeChapterId: string | null;
   onSelectChapter: (ch: ChapterItem) => void;
@@ -62,11 +64,12 @@ interface Props {
   onDeleteNote: (id: string) => Promise<void>;
 }
 
-type TabKey = 'outline' | 'characters' | 'foreshadowing' | 'notes';
+type TabKey = 'outline' | 'characters' | 'analysis' | 'foreshadowing' | 'notes';
 
 const tabs: Array<{ key: TabKey; label: string; icon: string }> = [
   { key: 'outline', label: '大纲', icon: '📑' },
   { key: 'characters', label: '人物', icon: '👤' },
+  { key: 'analysis', label: '分析', icon: '🔍' },
   { key: 'foreshadowing', label: '伏笔', icon: '🔮' },
   { key: 'notes', label: '笔记', icon: '🌍' },
 ];
@@ -113,6 +116,12 @@ export default function Sidebar(props: Props) {
             characters={props.characters}
             onAdd={props.onAddCharacter}
             onExtract={props.onExtractCharacters}
+          />
+        )}
+        {tab === 'analysis' && (
+          <AnalysisPanel
+            projectId={props.projectId}
+            chapters={props.chapters.map(ch => ({ id: ch.id, number: ch.number, title: ch.title }))}
           />
         )}
         {tab === 'foreshadowing' && (

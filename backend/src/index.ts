@@ -14,6 +14,7 @@ import exportRoutes from './routes/export';
 import chatRoutes from './routes/chat';
 import foreshadowingRoutes from './routes/foreshadowing';
 import notesRoutes from './routes/notes';
+import analysisRoutes from './routes/analysis';
 import { authMiddleware } from './middleware/auth';
 import { logger } from './logger';
 
@@ -67,6 +68,7 @@ app.use('/api/export', exportRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/foreshadowing', foreshadowingRoutes);
 app.use('/api/notes', notesRoutes);
+app.use('/api/analysis', analysisRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

@@ -405,6 +405,7 @@ export default function ProjectDetail() {
         <ThreeColumnLayout
           left={
             <Sidebar
+              projectId={id!}
               chapters={chapterList}
               activeChapterId={activeChapterId}
               onSelectChapter={(ch) => setActiveChapterId(ch.id)}
@@ -552,6 +553,7 @@ export default function ProjectDetail() {
       <MobileDrawer open={mobileDrawer === 'outline'} onClose={() => setMobileDrawer('none')} title="大纲 & 创作">
         <div className="text-sm">
           <Sidebar
+            projectId={id!}
             chapters={chapterList}
             activeChapterId={activeChapterId}
             onSelectChapter={(ch) => { setActiveChapterId(ch.id); setMobileDrawer('none'); }}

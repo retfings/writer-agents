@@ -119,6 +119,50 @@ function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_foreshadowing_project ON foreshadowing(project_id);
     CREATE INDEX IF NOT EXISTS idx_world_notes_project ON world_notes(project_id);
     CREATE INDEX IF NOT EXISTS idx_chat_messages_project ON chat_messages(project_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS conflicts (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'character_vs_character',
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      parties TEXT DEFAULT '[]',
+      chapter_id TEXT,
+      intensity TEXT DEFAULT 'medium',
+      status TEXT DEFAULT 'active',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS suspense (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      type TEXT DEFAULT 'mystery',
+      chapter_id TEXT,
+      payoff_chapter_id TEXT,
+      status TEXT DEFAULT 'unresolved',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS story_structures (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      element TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      chapter_id TEXT,
+      chapter_number INTEGER DEFAULT 0,
+      order_index INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_conflicts_project ON conflicts(project_id);
+    CREATE INDEX IF NOT EXISTS idx_suspense_project ON suspense(project_id);
+    CREATE INDEX IF NOT EXISTS idx_story_structures_project ON story_structures(project_id);
   `);
 }
 
