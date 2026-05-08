@@ -227,7 +227,8 @@ export default function ChapterContent({
               textIndent: '2em',
             }}
             placeholder="在此编辑章节内容..."
-            spellCheck={false}
+            spellCheck={true}
+            lang="zh-CN"
           />
 
           {/* Bottom breathing room */}
