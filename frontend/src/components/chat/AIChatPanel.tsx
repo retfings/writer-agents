@@ -1,0 +1,237 @@
+import { useState } from 'react';
+import { chat as chatApi } from '../../api';
+
+interface Props {
+  projectId: string;
+  chapterId: string | null;
+  chapterTitle?: string;
+}
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  isStreaming?: boolean;
+}
+
+const quickCommands = [
+  { label: '续写本章', prompt: '请续写当前章节的下一段内容' },
+  { label: '润色这段', prompt: '请润色当前章节，提升文笔和节奏感' },
+  { label: '动机分析', prompt: '请分析当前章节中主要角色的行为动机是否合理' },
+  { label: '情节建议', prompt: '请根据当前情节发展，给出3个后续可能的走向建议' },
+  { label: '逻辑检查', prompt: '请检查当前章节是否存在逻辑漏洞或前后矛盾' },
+  { label: '对话优化', prompt: '请优化当前章节中的对话，使其更自然生动' },
+];
+
+export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Props) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const loadHistory = async () => {
+    try {
+      const { messages: hist } = await chatApi.history(projectId);
+      setMessages(hist.map((m: any) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+      })));
+    } catch {}
+  };
+
+  const handleSend = async (text: string) => {
+    if (!text.trim() || loading) return;
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: text,
+    };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setLoading(true);
+
+    const assistantMsg: Message = {
+      id: (Date.now() + 1).toString(),
+      role: 'assistant',
+      content: '',
+      isStreaming: true,
+    };
+    setMessages(prev => [...prev, assistantMsg]);
+
+    try {
+      const resp = await chatApi.send(projectId, text, chapterId || undefined);
+      if (!resp.ok) throw new Error('请求失败');
+      const reader = resp.body?.getReader();
+      if (!reader) throw new Error('No reader');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.content) {
+                setMessages(prev => prev.map(m =>
+                  m.id === assistantMsg.id
+                    ? { ...m, content: m.content + data.content }
+                    : m
+                ));
+              }
+              if (data.done) {
+                setMessages(prev => prev.map(m =>
+                  m.id === assistantMsg.id
+                    ? { ...m, isStreaming: false }
+                    : m
+                ));
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch (err: any) {
+      setMessages(prev => prev.map(m =>
+        m.id === assistantMsg.id
+          ? { ...m, content: '❌ 对话失败: ' + err.message, isStreaming: false }
+          : m
+      ));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend(input);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100">
+        <h3 className="font-semibold text-gray-800 text-sm">🤖 AI 写作助手</h3>
+        <div className="flex gap-1">
+          {messages.length === 0 && (
+            <button
+              onClick={() => { showHistory ? setShowHistory(false) : (loadHistory(), setShowHistory(true)); }}
+              className="text-[10px] text-gray-400 hover:text-gray-600"
+            >
+              {showHistory ? '隐藏' : '历史'}
+            </button>
+          )}
+          {messages.length > 0 && (
+            <button
+              onClick={async () => {
+                if (confirm('清除对话历史？')) {
+                  await chatApi.clearHistory(projectId);
+                  setMessages([]);
+                }
+              }}
+              className="text-[10px] text-gray-400 hover:text-red-500"
+            >
+              清除
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Context indicator */}
+      {chapterTitle && (
+        <div className="px-3 py-1.5 bg-orange-50 border-b border-orange-100 text-[10px] text-orange-600">
+          📖 当前上下文：{chapterTitle}
+        </div>
+      )}
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
+        {messages.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-3xl mb-2">💬</p>
+            <p className="text-xs text-gray-400 mb-3">向 AI 助手提问关于写作的任何问题</p>
+            <div className="flex flex-wrap gap-1 justify-center">
+              {quickCommands.slice(0, 4).map((cmd, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleSend(cmd.prompt)}
+                  disabled={loading}
+                  className="text-[10px] bg-gray-50 hover:bg-orange-50 text-gray-600 hover:text-orange-600 px-2 py-1 rounded-full border border-gray-100 transition"
+                >
+                  {cmd.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {messages.map(msg => (
+          <div
+            key={msg.id}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[90%] px-3 py-1.5 rounded-lg text-xs leading-relaxed whitespace-pre-wrap ${
+                msg.role === 'user'
+                  ? 'bg-orange-500 text-white rounded-br-sm'
+                  : msg.role === 'system'
+                  ? 'bg-gray-100 text-gray-500 italic text-[10px]'
+                  : 'bg-gray-100 text-gray-700 rounded-bl-sm'
+              } ${msg.isStreaming ? 'border-r-2 border-orange-400 animate-pulse' : ''}`}
+            >
+              {msg.content}
+              {msg.isStreaming && !msg.content && (
+                <span className="inline-flex gap-0.5">
+                  <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+        <div ref={el => el?.scrollIntoView({ behavior: 'smooth' })} />
+      </div>
+
+      {/* Input */}
+      <div className="p-2 border-t border-gray-100">
+        <div className="flex flex-wrap gap-0.5 mb-1.5">
+          {quickCommands.map((cmd, i) => (
+            <button
+              key={i}
+              onClick={() => handleSend(cmd.prompt)}
+              disabled={loading}
+              className="text-[9px] text-gray-400 hover:text-orange-500 hover:bg-orange-50 px-1.5 py-0.5 rounded transition"
+            >
+              {cmd.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1.5">
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={chapterTitle ? `问关于「${chapterTitle}」的问题...` : '输入消息...'}
+            className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs resize-none outline-none focus:border-orange-300"
+            rows={2}
+            disabled={loading}
+          />
+          <button
+            onClick={() => handleSend(input)}
+            disabled={loading || !input.trim()}
+            className="bg-orange-500 text-white px-3 rounded-lg text-xs font-medium hover:bg-orange-600 disabled:opacity-50 self-end h-8"
+          >
+            发送
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

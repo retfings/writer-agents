@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+/* Mobile safe area support */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Better touch targets */
+@media (max-width: 640px) {
+  input, textarea, select, button {
+    font-size: 16px !important; /* Prevent iOS zoom on focus */
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent text inflation */
+body {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
