@@ -118,7 +118,8 @@ router.delete('/:id', (req: Request, res: Response) => {
 });
 
 // SSE: Extract characters from selected chapters
-router.post('/extract/:projectId/stream', async (req: Request, res: Response) => {
+// NOTE: Not async - uses internal promise chain to avoid Express 4 interference
+router.post('/extract/:projectId/stream', (req: Request, res: Response) => {
   const user = (req as any).user;
   const db = getDb();
   const { chapterIds } = req.body as { chapterIds: string[] };
@@ -128,6 +129,7 @@ router.post('/extract/:projectId/stream', async (req: Request, res: Response) =>
   if (!project) { res.status(404).json({ error: '项目不存在' }); return; }
   if (!chapterIds?.length) { res.status(400).json({ error: '请选择章节' }); return; }
 
+  // Set up SSE headers before any await to prevent Express from flushing early
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -139,7 +141,6 @@ router.post('/extract/:projectId/stream', async (req: Request, res: Response) =>
   if ((res as any).socket) {
     (res as any).socket.setNoDelay(true);
   }
-  // Flush headers immediately
   res.flushHeaders?.();
 
   let aborted = false;
@@ -156,18 +157,12 @@ router.post('/extract/:projectId/stream', async (req: Request, res: Response) =>
     console.log('[Extract] res close event fired. bytes written:', bytesWritten);
   });
 
-  const send = (event: string, data: any) => {
-    if (aborted) return;
+  const send = (event: string, data: any): boolean => {
+    if (aborted) return false;
     const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
     bytesWritten += Buffer.byteLength(payload);
-    const ok = res.write(payload);
-    console.log('[Extract] send', event, 'bytes:', Buffer.byteLength(payload), 'drain:', !ok);
-    // If write buffer is full, wait for drain
-    if (!ok) {
-      return new Promise<void>((resolve) => {
-        res.once('drain', () => resolve());
-      });
-    }
+    console.log('[Extract] send', event, 'bytes:', Buffer.byteLength(payload), 'total:', bytesWritten);
+    return res.write(payload);
   };
 
   const chapters = db.prepare(`
@@ -176,81 +171,100 @@ router.post('/extract/:projectId/stream', async (req: Request, res: Response) =>
     ORDER BY number ASC
   `).all(req.params.projectId, ...chapterIds) as any[];
 
-  if (!chapters.length) { send('error', { message: '未找到章节' }); res.end(); return; }
+  if (!chapters.length) {
+    send('error', { message: '未找到章节' });
+    res.end();
+    return;
+  }
 
   const existingChars = db.prepare('SELECT id, name, role, description, traits, relationships, arc FROM characters WHERE project_id = ?')
     .all(req.params.projectId) as any[];
 
-  const processChapters = async () => {
-    console.log('[Extract] Starting processing', chapters.length, 'chapters');
-    const total = chapters.length;
-
-    // Keep-alive heartbeat every 3s to prevent proxy/browser idle disconnect
-    const heartbeat = setInterval(() => {
-      if (aborted) return;
-      res.write(':keepalive\n\n');
-    }, 3000);
-
-    for (let i = 0; i < total; i++) {
-      if (aborted) { console.log('[Extract] Aborted'); break; }
-      const ch = chapters[i];
-
-      await send('progress', {
-        current: i + 1,
-        total,
-        chapterId: ch.id,
-        chapterTitle: `第${ch.number}章 ${ch.title}`,
-        message: `正在分析第${ch.number}章...`,
-      });
-
-      try {
-        const chars = await extractFromContent(project.title, ch.content, ch.number, ch.outline);
-        console.log('[Extract] Ch', ch.number, 'found', chars.length, 'characters:', chars.map(c => c.name).join(', '));
-        for (const c of chars) {
-          if (aborted) break;
-          const existing = existingChars.find((e: any) => e.name === c.name);
-          await send('character', {
-            ...c,
-            chapterNumber: ch.number,
-            chapterId: ch.id,
-            matchType: existing ? 'merge' : 'new',
-            existingId: existing?.id || null,
-            existingData: existing ? {
-              role: existing.role,
-              description: existing.description,
-              traits: JSON.parse(existing.traits || '[]'),
-              relationships: JSON.parse(existing.relationships || '[]'),
-              arc: existing.arc,
-            } : null,
-          });
-        }
-      } catch (err: any) {
-        await send('warn', { chapterId: ch.id, message: `第${ch.number}章分析失败: ${err.message}` });
+  // Start processing asynchronously; Express has already sent headers
+  processAllChapters(project.title, chapters, existingChars, send, () => aborted)
+    .then(() => {
+      if (!aborted) {
+        send('done', { message: '分析完成' });
+        console.log('[Extract] Done. total bytes:', bytesWritten);
       }
-    }
-
-    clearInterval(heartbeat);
-
-    await send('done', { message: '分析完成' });
-    console.log('[Extract] Done');
-    res.end();
-  };
-
-  // Keep connection alive by awaiting the processing
-  await new Promise<void>((resolve) => {
-    const wrapped = async () => {
-      try {
-        await processChapters();
-      } catch (err: any) {
-        console.error('[Extract] Error:', err.message);
-        if (!aborted) send('error', { message: err.message });
-        res.end();
-      }
-      resolve();
-    };
-    wrapped();
-  });
+      res.end();
+    })
+    .catch((err: any) => {
+      console.error('[Extract] Fatal error:', err.message);
+      if (!aborted) send('error', { message: err.message });
+      res.end();
+    });
 });
+
+async function processAllChapters(
+  title: string,
+  chapters: any[],
+  existingChars: any[],
+  send: (event: string, data: any) => boolean,
+  isAborted: () => boolean,
+): Promise<void> {
+  const total = chapters.length;
+  console.log('[Extract] Starting processing', total, 'chapters');
+
+  // Keep-alive heartbeat every 2s to prevent proxy/browser idle disconnect
+  const heartbeat = setInterval(() => {
+    if (isAborted()) return;
+    resWriteKeepalive(send);
+  }, 2000);
+
+  for (let i = 0; i < total; i++) {
+    if (isAborted()) { console.log('[Extract] Aborted at ch', i + 1); break; }
+    const ch = chapters[i];
+
+    send('progress', {
+      current: i + 1,
+      total,
+      chapterId: ch.id,
+      chapterTitle: `第${ch.number}章 ${ch.title}`,
+      message: `正在分析第${ch.number}章...`,
+    });
+
+    try {
+      const chars = await extractFromContent(title, ch.content, ch.number, ch.outline);
+      console.log('[Extract] Ch', ch.number, 'found', chars.length, 'characters:', chars.map((c: any) => c.name).join(', '));
+      
+      for (const c of chars) {
+        if (isAborted()) break;
+        const existing = existingChars.find((e: any) => e.name === c.name);
+        send('character', {
+          ...c,
+          chapterNumber: ch.number,
+          chapterId: ch.id,
+          matchType: existing ? 'merge' : 'new',
+          existingId: existing?.id || null,
+          existingData: existing ? {
+            role: existing.role,
+            description: existing.description,
+            traits: JSON.parse(existing.traits || '[]'),
+            relationships: JSON.parse(existing.relationships || '[]'),
+            arc: existing.arc,
+          } : null,
+        });
+      }
+    } catch (err: any) {
+      send('warn', { chapterId: ch.id, message: `第${ch.number}章分析失败: ${err.message}` });
+    }
+  }
+
+  clearInterval(heartbeat);
+}
+
+// Helper: send SSE keepalive comment
+let _keepaliveCount = 0;
+function resWriteKeepalive(send: (event: string, data: any) => boolean) {
+  _keepaliveCount++;
+  // Use raw res.write for heartbeat to avoid double JSON stringify
+  // send() already handles the write, just pass empty data
+  const ok = send('keepalive', { t: _keepaliveCount });
+  if (!ok) {
+    console.log('[Extract] keepalive write returned false (backpressure)');
+  }
+}
 
 async function extractFromContent(title: string, content: string, chapterNum: number, outline?: string): Promise<any[]> {
   const { default: OpenAI } = await import('openai');
@@ -275,6 +289,8 @@ async function extractFromContent(title: string, content: string, chapterNum: nu
     return [];
   }
 
+  console.log('[Extract] Sending to DeepSeek for Ch', chapterNum, '- text length:', text.length);
+
   const response = await client.chat.completions.create({
     model: 'deepseek-chat',
     messages: [
@@ -290,10 +306,17 @@ JSON格式：{"characters":[{"name":"姓名","aliases":["别名"],"role":"主角
   });
 
   const raw = response.choices[0]?.message?.content || '';
+  console.log('[Extract] DeepSeek response for Ch', chapterNum, '- raw length:', raw.length);
+  
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return [];
+  if (!jsonMatch) {
+    console.log('[Extract] Ch', chapterNum, '- no JSON found in response');
+    return [];
+  }
   const parsed = JSON.parse(jsonMatch[0]);
-  return parsed.characters || [];
+  const chars = parsed.characters || [];
+  console.log('[Extract] Ch', chapterNum, '- parsed', chars.length, 'characters');
+  return chars;
 }
 
 export default router;
