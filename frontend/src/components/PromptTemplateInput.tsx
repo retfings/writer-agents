@@ -261,6 +261,21 @@ export default function PromptTemplateInput({ value, onChange, onSubmit, error }
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const slashRef = useRef<HTMLDivElement>(null);
   const [selectedSlash, setSelectedSlash] = useState(0);
+  const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll selected slash item into view
+  useEffect(() => {
+    if (showSlash && itemRefs.current.has(selectedSlash)) {
+      itemRefs.current.get(selectedSlash)?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [selectedSlash, showSlash]);
+
+  // Clear item refs when filter changes
+  useEffect(() => {
+    itemRefs.current.clear();
+    setSelectedSlash(0);
+  }, [slashFilter]);
 
   // Click outside closes slash menu
   useEffect(() => {
@@ -420,10 +435,11 @@ export default function PromptTemplateInput({ value, onChange, onSubmit, error }
             <div className="px-3 py-2 text-[10px] text-gray-400 bg-gray-50 border-b">
               选择模板 — 输入关键字筛选，↓↑ 选择，Enter 确认，Esc 取消
             </div>
-            <div className="max-h-48 overflow-y-auto py-1">
+            <div ref={scrollRef} className="max-h-48 overflow-y-auto py-1">
               {filterTemplates(slashFilter).map((t, i) => (
                 <button
                   key={t.id}
+                  ref={(el) => { if (el) itemRefs.current.set(i, el); else itemRefs.current.delete(i); }}
                   onMouseDown={e => { e.preventDefault(); applyTemplate(t); }}
                   className={`w-full text-left px-3 py-2 flex items-center gap-2.5 text-xs transition ${
                     i === selectedSlash ? 'bg-orange-50 text-orange-700' : 'text-gray-700 hover:bg-gray-50'
