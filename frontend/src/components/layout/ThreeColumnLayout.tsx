@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ThreeColumnLayoutProps {
   left: React.ReactNode;
@@ -33,34 +33,35 @@ export default function ThreeColumnLayout({
     setRw(rightWidth);
   }, [leftWidth, rightWidth]);
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (isDraggingLeft) {
-      setLw(Math.max(200, Math.min(500, e.clientX)));
-    }
-    if (isDraggingRight) {
-      setRw(Math.max(260, Math.min(600, window.innerWidth - e.clientX)));
-    }
-  }, [isDraggingLeft, isDraggingRight]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsDraggingLeft(false);
-    setIsDraggingRight(false);
-  }, []);
-
   useEffect(() => {
     if (isDraggingLeft || isDraggingRight) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      const onMove = (e: MouseEvent) => {
+        if (isDraggingLeft) setLw(Math.max(200, Math.min(500, e.clientX)));
+        if (isDraggingRight) setRw(Math.max(260, Math.min(600, window.innerWidth - e.clientX)));
+      };
+      const onUp = () => {
+        setIsDraggingLeft(false);
+        setIsDraggingRight(false);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+      // Safety: reset after 5s if somehow mouseup never fires
+      const safety = setTimeout(onUp, 5000);
+      return () => {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        clearTimeout(safety);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        setIsDraggingLeft(false);
+        setIsDraggingRight(false);
+      };
     }
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-  }, [isDraggingLeft, isDraggingRight, handleMouseMove, handleMouseUp]);
+  }, [isDraggingLeft, isDraggingRight]);
 
   const sidebarHidden = leftCollapsed || hideLeft || focusMode;
   const aiHidden = rightCollapsed || hideRight || focusMode;

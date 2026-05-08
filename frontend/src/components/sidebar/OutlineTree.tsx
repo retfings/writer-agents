@@ -86,7 +86,7 @@ export default function OutlineTree({
       )}
 
       {/* Chapter list */}
-      <div className="flex-1 overflow-y-auto space-y-0.5">
+      <div className="flex-1 overflow-y-auto space-y-0.5 pr-1 pb-4" style={{ scrollbarWidth: 'thin', scrollbarGutter: 'stable' }}>
         {filtered.map(ch => (
           <div
             key={ch.id}
