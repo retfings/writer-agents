@@ -98,7 +98,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gray-50">
+    <div className="h-full bg-gray-50 overflow-auto">
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">

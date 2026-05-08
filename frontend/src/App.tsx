@@ -24,10 +24,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
+    <div className="h-screen overflow-hidden">
     <BrowserRouter>
       <AuthProvider>
         <AppRoutes />
       </AuthProvider>
     </BrowserRouter>
+    </div>
   );
 }

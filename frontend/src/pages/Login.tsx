@@ -34,7 +34,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-orange-50 via-red-50 to-rose-100 flex items-center justify-center px-4 py-6 sm:p-4">
+    <div className="h-full bg-gradient-to-br from-orange-50 via-red-50 to-rose-100 flex items-center justify-center px-4 py-6 sm:p-4 overflow-auto">
       <div className="w-full max-w-sm sm:max-w-md">
         <div className="text-center mb-6 sm:mb-8">
           <div className="text-5xl sm:text-6xl mb-3 sm:mb-4">🦞</div>

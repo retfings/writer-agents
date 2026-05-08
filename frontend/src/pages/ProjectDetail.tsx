@@ -301,7 +301,7 @@ export default function ProjectDetail() {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-gray-50 overflow-hidden">
+    <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
       {/* Top header bar */}
       <header className="bg-white border-b border-gray-200 shrink-0 z-10">
         <div className="px-3 sm:px-4 py-2.5 flex items-center gap-3">
