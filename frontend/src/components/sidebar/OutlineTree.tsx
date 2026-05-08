@@ -91,25 +91,34 @@ export default function OutlineTree({
           <div
             key={ch.id}
             onClick={() => onSelectChapter(ch)}
-            className={`group flex items-center gap-1.5 px-2 py-1.5 rounded cursor-pointer transition text-xs ${
+            className={`group px-2 py-1.5 rounded cursor-pointer transition text-xs ${
               activeChapterId === ch.id
                 ? 'bg-orange-100 text-orange-700'
                 : 'hover:bg-gray-50 text-gray-700'
             }`}
           >
-            <span className="text-[10px] w-4 shrink-0">{statusIcons[ch.status] || '📋'}</span>
-            <span className="text-gray-400 w-5 shrink-0 font-mono text-[10px]">{ch.number}.</span>
-            <span className="truncate flex-1">{ch.title || `第${ch.number}章`}</span>
-            {ch.wordCount > 0 && (
-              <span className="text-[10px] text-gray-300 shrink-0">{Math.round(ch.wordCount / 1000)}k</span>
-            )}
-            {onDeleteChapter && (
-              <button
-                onClick={e => { e.stopPropagation(); onDeleteChapter(ch.id); }}
-                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 text-[10px] shrink-0"
-              >
-                ✕
-              </button>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] w-4 shrink-0">{statusIcons[ch.status] || '📋'}</span>
+              <span className="text-gray-400 w-5 shrink-0 font-mono text-[10px]">{ch.number}.</span>
+              <span className="truncate flex-1 font-medium">{ch.title || `第${ch.number}章`}</span>
+              {ch.wordCount > 0 && (
+                <span className="text-[10px] text-gray-300 shrink-0">{Math.round(ch.wordCount / 1000)}k</span>
+              )}
+              {onDeleteChapter && (
+                <button
+                  onClick={e => { e.stopPropagation(); onDeleteChapter(ch.id); }}
+                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 text-[10px] shrink-0"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            {ch.outline && (
+              <p className={`text-[10px] leading-relaxed mt-0.5 pl-[36px] truncate ${
+                activeChapterId === ch.id ? 'text-orange-500/60' : 'text-gray-400/70'
+              }`}>
+                {ch.outline}
+              </p>
             )}
           </div>
         ))}

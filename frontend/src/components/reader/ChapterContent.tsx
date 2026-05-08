@@ -153,9 +153,18 @@ export default function ChapterContent({
 
   if (!content && !text) {
     return (
-      <div className={`flex-1 flex flex-col items-center justify-center ${bgColors[theme]} ${textColors[theme]}`}>
+      <div className={`flex-1 flex flex-col items-center justify-center ${bgColors[theme]} ${textColors[theme]} px-8`}>
         <p className="text-4xl mb-3">📝</p>
-        <p className="opacity-40 text-sm">该章节尚未写作</p>
+        <p className="opacity-40 text-sm mb-2">该章节尚未写作</p>
+        {outline && (
+          <div className={`max-w-lg text-center`}>
+            <p className="text-xs opacity-30 mb-1">AI 生成大纲</p>
+            <p className={`text-sm leading-relaxed opacity-50`}
+               style={{ fontSize: `${fontSize}px` }}>
+              {outline}
+            </p>
+          </div>
+        )}
       </div>
     );
   }
