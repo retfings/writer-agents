@@ -66,7 +66,7 @@ export default function ThreeColumnLayout({
   const aiHidden = rightCollapsed || hideRight || focusMode;
 
   return (
-    <div className="flex h-full">
+    <div className="flex min-h-0 flex-1">
       {/* Left Panel */}
       {!hideLeft && (
         <div

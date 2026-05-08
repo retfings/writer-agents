@@ -386,7 +386,7 @@ export default function ProjectDetail() {
           }
           center={
             activeChapter ? (
-              <div className="flex flex-col h-full">
+              <div className="flex flex-col min-h-0 flex-1">
                 <ReadingToolbar
                   fontSize={fontSize}
                   onFontSizeChange={setFontSize}
