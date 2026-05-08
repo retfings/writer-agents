@@ -10,6 +10,7 @@ import AIChatPanel from '../components/chat/AIChatPanel';
 import MobileBottomNav from '../components/mobile/MobileBottomNav';
 import MobileDrawer from '../components/mobile/MobileDrawer';
 import MobileFormatBubble from '../components/mobile/MobileFormatBubble';
+import CharacterExtractModal from '../components/character/CharacterExtractModal';
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -37,6 +38,7 @@ export default function ProjectDetail() {
   const [focusMode, setFocusMode] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [mobileDrawer, setMobileDrawer] = useState<'outline' | 'ai' | 'none'>('none');
+  const [showExtractModal, setShowExtractModal] = useState(false);
 
   // Reading settings (persisted)
   const [fontSize, setFontSize] = useState(() => {
@@ -251,6 +253,42 @@ export default function ProjectDetail() {
     await reloadCharacters();
   };
 
+  const handleExtractConfirm = async (extracted: any[]) => {
+    for (const c of extracted) {
+      if (c.matchType === 'new' || !c.existingId) {
+        await characters.create({
+          projectId: id,
+          name: c.name,
+          role: c.role || '配角',
+          description: [c.occupation, c.summary].filter(Boolean).join('。'),
+          traits: c.personality || [],
+          relationships: (c.relations || []).map((r: any) => ({
+            withName: r.target,
+            relation: r.relation,
+            dynamic: '',
+          })),
+          arc: '',
+        });
+      } else {
+        // Merge: update existing
+        const existing = c.existingData;
+        const mergedTraits = [...new Set([...(existing?.traits || []), ...(c.personality || [])])];
+        const mergedRels = [...(existing?.relationships || [])];
+        for (const r of (c.relations || [])) {
+          if (!mergedRels.find((mr: any) => mr.withName === r.target)) {
+            mergedRels.push({ withName: r.target, relation: r.relation, dynamic: '' });
+          }
+        }
+        await characters.update(c.existingId, {
+          traits: mergedTraits,
+          relationships: mergedRels,
+          description: existing?.description || [c.occupation, c.summary].filter(Boolean).join('。'),
+        });
+      }
+    }
+    await reloadCharacters();
+  };
+
   // Foreshadowing
   const handleAddForeshadowing = async (data: any) => {
     await foreshadowing.create({ ...data, projectId: id });
@@ -377,6 +415,7 @@ export default function ProjectDetail() {
               deletingAll={deletingAll}
               characters={charList}
               onAddCharacter={handleAddCharacter}
+              onExtractCharacters={() => setShowExtractModal(true)}
               foreshadowing={foreshadowingList}
               chapterTitles={chapterTitles}
               onAddForeshadowing={handleAddForeshadowing}
@@ -455,6 +494,15 @@ export default function ProjectDetail() {
           focusMode={focusMode}
         />
       </div>
+
+      {/* Extract Characters Modal */}
+      <CharacterExtractModal
+        open={showExtractModal}
+        onClose={() => setShowExtractModal(false)}
+        projectId={id!}
+        chapters={chapterList.map(ch => ({ id: ch.id, number: ch.number, title: ch.title }))}
+        onConfirm={handleExtractConfirm}
+      />
 
       {/* Rewrite Modal */}
       {showRewriteModal && (

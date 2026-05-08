@@ -48,6 +48,7 @@ interface Props {
   deletingAll?: boolean;
   characters: CharacterItem[];
   onAddCharacter: (data: any) => Promise<void>;
+  onExtractCharacters?: () => void;
   onUpdateCharacter?: (id: string, data: any) => Promise<void>;
   onDeleteCharacter?: (id: string) => Promise<void>;
   foreshadowing: ForeshadowingItem[];
@@ -111,6 +112,7 @@ export default function Sidebar(props: Props) {
           <CharacterPanel
             characters={props.characters}
             onAdd={props.onAddCharacter}
+            onExtract={props.onExtractCharacters}
           />
         )}
         {tab === 'foreshadowing' && (

@@ -13,11 +13,12 @@ interface CharacterItem {
 interface Props {
   characters: CharacterItem[];
   onAdd: (data: any) => Promise<void>;
+  onExtract?: () => void;
 }
 
 const colorPool = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8','#F7DC6F','#BB8FCE','#85C1E9'];
 
-export default function CharacterPanel({ characters, onAdd }: Props) {
+export default function CharacterPanel({ characters, onAdd, onExtract }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', role: '', description: '', traits: '' });
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -39,12 +40,16 @@ export default function CharacterPanel({ characters, onAdd }: Props) {
     <div className="flex flex-col h-full p-3">
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-gray-800 text-sm">👤 人物角色</h3>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="text-xs text-orange-500 hover:text-orange-600"
-        >
-          + 添加
-        </button>
+        <div className="flex items-center gap-2">
+          {onExtract && (
+            <button onClick={onExtract} className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-500 hover:bg-purple-100" title="AI 提取人物">
+              ✨ 提取
+            </button>
+          )}
+          <button onClick={() => setShowForm(!showForm)} className="text-xs text-orange-500 hover:text-orange-600">
+            + 添加
+          </button>
+        </div>
       </div>
 
       {showForm && (

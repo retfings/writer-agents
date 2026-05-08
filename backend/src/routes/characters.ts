@@ -117,4 +117,124 @@ router.delete('/:id', (req: Request, res: Response) => {
   res.json({ success: result.changes > 0 });
 });
 
+// SSE: Extract characters from selected chapters
+router.post('/extract/:projectId/stream', (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const db = getDb();
+  const { chapterIds } = req.body as { chapterIds: string[] };
+
+  const project = db.prepare('SELECT id, title FROM projects WHERE id = ? AND user_id = ?')
+    .get(req.params.projectId, user.id) as any;
+  if (!project) { res.status(404).json({ error: '项目不存在' }); return; }
+  if (!chapterIds?.length) { res.status(400).json({ error: '请选择章节' }); return; }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+
+  let aborted = false;
+  req.on('close', () => { aborted = true; });
+
+  const send = (event: string, data: any) => {
+    if (aborted) return;
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+
+  const chapters = db.prepare(`
+    SELECT id, number, title, content FROM chapters
+    WHERE project_id = ? AND id IN (${chapterIds.map(() => '?').join(',')})
+    ORDER BY number ASC
+  `).all(req.params.projectId, ...chapterIds) as any[];
+
+  if (!chapters.length) { send('error', { message: '未找到章节' }); res.end(); return; }
+
+  const existingChars = db.prepare('SELECT id, name, role, description, traits, relationships, arc FROM characters WHERE project_id = ?')
+    .all(req.params.projectId) as any[];
+
+  const processChapters = async () => {
+    const total = chapters.length;
+
+    for (let i = 0; i < total; i++) {
+      if (aborted) break;
+      const ch = chapters[i];
+
+      send('progress', {
+        current: i + 1,
+        total,
+        chapterId: ch.id,
+        chapterTitle: `第${ch.number}章 ${ch.title}`,
+        message: `正在分析第${ch.number}章...`,
+      });
+
+      try {
+        const chars = await extractFromContent(project.title, ch.content, ch.number);
+        for (const c of chars) {
+          if (aborted) break;
+          const existing = existingChars.find((e: any) => e.name === c.name);
+          send('character', {
+            ...c,
+            chapterNumber: ch.number,
+            chapterId: ch.id,
+            matchType: existing ? 'merge' : 'new',
+            existingId: existing?.id || null,
+            existingData: existing ? {
+              role: existing.role,
+              description: existing.description,
+              traits: JSON.parse(existing.traits || '[]'),
+              relationships: JSON.parse(existing.relationships || '[]'),
+              arc: existing.arc,
+            } : null,
+          });
+        }
+      } catch (err: any) {
+        send('warn', { chapterId: ch.id, message: `第${ch.number}章分析失败: ${err.message}` });
+      }
+    }
+
+    send('done', { message: '分析完成' });
+    res.end();
+  };
+
+  processChapters().catch(err => {
+    if (!aborted) send('error', { message: err.message });
+    res.end();
+  });
+});
+
+async function extractFromContent(title: string, content: string, chapterNum: number): Promise<any[]> {
+  const { default: OpenAI } = await import('openai');
+  const client = new OpenAI({
+    apiKey: process.env.DEEPSEEK_API_KEY || '',
+    baseURL: 'https://api.deepseek.com/v1',
+  });
+
+  const maxLen = 8000;
+  const text = content.length > maxLen
+    ? content.slice(0, maxLen / 2) + '\n\n...\n\n' + content.slice(-maxLen / 2)
+    : content;
+
+  const response = await client.chat.completions.create({
+    model: 'deepseek-chat',
+    messages: [
+      { role: 'system', content: '你是小说角色提取助手。只返回JSON，不要markdown代码块。' },
+      { role: 'user', content: `小说《${title}》第${chapterNum}章。提取所有有名有姓的角色。规则：1) 只提取有明确名字或稳定称呼的角色 2) 路人/一次性龙套不提取 3) 性格从行为和对话推断 4) 关系必须是文中体现的 5) 仅返回JSON对象。
+
+JSON格式：{"characters":[{"name":"姓名","aliases":["别名"],"role":"主角|配角|反派","occupation":"职业","appearance":"外貌","personality":["标签"],"relations":[{"target":"对方","relation":"关系"}],"summary":"50字简介"}]}
+
+正文：${text}` },
+    ],
+    temperature: 0.3,
+    max_tokens: 4096,
+  });
+
+  const raw = response.choices[0]?.message?.content || '';
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return [];
+  const parsed = JSON.parse(jsonMatch[0]);
+  return parsed.characters || [];
+}
+
 export default router;
