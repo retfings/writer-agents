@@ -118,12 +118,12 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100">
-        <h3 className="font-semibold text-gray-800 text-sm">🤖 AI 写作助手</h3>
+        <h3 className="font-semibold text-gray-800 text-base">🤖 AI 写作助手</h3>
         <div className="flex gap-1">
           {messages.length === 0 && (
             <button
               onClick={() => { showHistory ? setShowHistory(false) : (loadHistory(), setShowHistory(true)); }}
-              className="text-[10px] text-gray-400 hover:text-gray-600"
+              className="text-xs text-gray-400 hover:text-gray-600"
             >
               {showHistory ? '隐藏' : '历史'}
             </button>
@@ -136,7 +136,7 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
                   setMessages([]);
                 }
               }}
-              className="text-[10px] text-gray-400 hover:text-red-500"
+              className="text-xs text-gray-400 hover:text-red-500"
             >
               清除
             </button>
@@ -146,7 +146,7 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
 
       {/* Context indicator */}
       {chapterTitle && (
-        <div className="px-3 py-1.5 bg-orange-50 border-b border-orange-100 text-[10px] text-orange-600">
+        <div className="px-3 py-1.5 bg-orange-50 border-b border-orange-100 text-xs text-orange-600">
           📖 当前上下文：{chapterTitle}
         </div>
       )}
@@ -155,15 +155,15 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
         {messages.length === 0 && (
           <div className="text-center py-8">
-            <p className="text-3xl mb-2">💬</p>
-            <p className="text-xs text-gray-400 mb-3">向 AI 助手提问关于写作的任何问题</p>
+            <p className="text-4xl mb-2">💬</p>
+            <p className="text-sm text-gray-400 mb-3">向 AI 助手提问关于写作的任何问题</p>
             <div className="flex flex-wrap gap-1 justify-center">
-              {quickCommands.slice(0, 4).map((cmd, i) => (
+              {quickCommands.slice(0, 6).map((cmd, i) => (
                 <button
                   key={i}
                   onClick={() => handleSend(cmd.prompt)}
                   disabled={loading}
-                  className="text-[10px] bg-gray-50 hover:bg-orange-50 text-gray-600 hover:text-orange-600 px-2 py-1 rounded-full border border-gray-100 transition"
+                  className="text-xs bg-gray-50 hover:bg-orange-50 text-gray-600 hover:text-orange-600 px-2.5 py-1.5 rounded-lg border border-gray-100 transition"
                 >
                   {cmd.label}
                 </button>
@@ -177,11 +177,11 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[90%] px-3 py-1.5 rounded-lg text-xs leading-relaxed whitespace-pre-wrap ${
+              className={`max-w-[90%] px-3 py-1.5 rounded-lg text-sm leading-relaxed whitespace-pre-wrap ${
                 msg.role === 'user'
                   ? 'bg-orange-500 text-white rounded-br-sm'
                   : msg.role === 'system'
-                  ? 'bg-gray-100 text-gray-500 italic text-[10px]'
+                  ? 'bg-gray-100 text-gray-500 italic text-xs'
                   : 'bg-gray-100 text-gray-700 rounded-bl-sm'
               } ${msg.isStreaming ? 'border-r-2 border-orange-400 animate-pulse' : ''}`}
             >
@@ -200,14 +200,14 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
       </div>
 
       {/* Input */}
-      <div className="p-2 border-t border-gray-100">
-        <div className="flex flex-wrap gap-0.5 mb-1.5">
+      <div className="p-2.5 border-t border-gray-100 bg-gray-50/50">
+        <div className="flex flex-wrap gap-1 mb-2">
           {quickCommands.map((cmd, i) => (
             <button
               key={i}
               onClick={() => handleSend(cmd.prompt)}
               disabled={loading}
-              className="text-[9px] text-gray-400 hover:text-orange-500 hover:bg-orange-50 px-1.5 py-0.5 rounded transition"
+              className="text-xs text-gray-500 hover:text-orange-500 hover:bg-orange-50 px-2 py-1 rounded-md border border-gray-100 bg-white transition"
             >
               {cmd.label}
             </button>
@@ -219,14 +219,14 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={chapterTitle ? `问关于「${chapterTitle}」的问题...` : '输入消息...'}
-            className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs resize-none outline-none focus:border-orange-300"
+            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none outline-none focus:border-orange-300 disabled:opacity-50"
             rows={2}
             disabled={loading}
           />
           <button
             onClick={() => handleSend(input)}
             disabled={loading || !input.trim()}
-            className="bg-orange-500 text-white px-3 rounded-lg text-xs font-medium hover:bg-orange-600 disabled:opacity-50 self-end h-8"
+            className="bg-orange-500 text-white px-4 rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50 self-end h-9 shrink-0"
           >
             发送
           </button>
