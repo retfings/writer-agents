@@ -118,7 +118,7 @@ router.delete('/:id', (req: Request, res: Response) => {
 });
 
 // SSE: Extract characters from selected chapters
-router.post('/extract/:projectId/stream', (req: Request, res: Response) => {
+router.post('/extract/:projectId/stream', async (req: Request, res: Response) => {
   const user = (req as any).user;
   const db = getDb();
   const { chapterIds } = req.body as { chapterIds: string[] };
@@ -155,10 +155,11 @@ router.post('/extract/:projectId/stream', (req: Request, res: Response) => {
     .all(req.params.projectId) as any[];
 
   const processChapters = async () => {
+    console.log('[Extract] Starting processing', chapters.length, 'chapters');
     const total = chapters.length;
 
     for (let i = 0; i < total; i++) {
-      if (aborted) break;
+      if (aborted) { console.log('[Extract] Aborted'); break; }
       const ch = chapters[i];
 
       send('progress', {
@@ -171,6 +172,7 @@ router.post('/extract/:projectId/stream', (req: Request, res: Response) => {
 
       try {
         const chars = await extractFromContent(project.title, ch.content, ch.number);
+        console.log('[Extract] Ch', ch.number, 'found', chars.length, 'characters:', chars.map(c => c.name).join(', '));
         for (const c of chars) {
           if (aborted) break;
           const existing = existingChars.find((e: any) => e.name === c.name);
@@ -195,12 +197,23 @@ router.post('/extract/:projectId/stream', (req: Request, res: Response) => {
     }
 
     send('done', { message: '分析完成' });
+    console.log('[Extract] Done');
     res.end();
   };
 
-  processChapters().catch(err => {
-    if (!aborted) send('error', { message: err.message });
-    res.end();
+  // Keep connection alive by awaiting the processing
+  await new Promise<void>((resolve) => {
+    const wrapped = async () => {
+      try {
+        await processChapters();
+      } catch (err: any) {
+        console.error('[Extract] Error:', err.message);
+        if (!aborted) send('error', { message: err.message });
+        res.end();
+      }
+      resolve();
+    };
+    wrapped();
   });
 });
 
