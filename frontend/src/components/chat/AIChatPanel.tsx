@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { chat as chatApi } from '../../api';
 
 interface Props {
@@ -28,6 +28,18 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when messages update, but only if user is near bottom
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    if (isNearBottom || messages.length <= 2) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [messages]);
 
   const loadHistory = async () => {
     try {
@@ -152,7 +164,7 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-3 py-2 space-y-2 overscroll-contain">
         {messages.length === 0 && (
           <div className="text-center py-8">
             <p className="text-4xl mb-2">💬</p>
@@ -183,10 +195,13 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
                   : msg.role === 'system'
                   ? 'bg-gray-100 text-gray-500 italic text-xs'
                   : 'bg-gray-100 text-gray-700 rounded-bl-sm'
-              } ${msg.isStreaming ? 'border-r-2 border-orange-400 animate-pulse' : ''}`}
+              }`}
             >
               {msg.content}
-              {msg.isStreaming && !msg.content && (
+              {msg.isStreaming && (
+                <span className="inline-block w-1.5 h-4 bg-orange-400 ml-0.5 align-text-bottom animate-blink" />
+              )}
+              {!msg.isStreaming && !msg.content && !loading && (
                 <span className="inline-flex gap-0.5">
                   <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                   <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -196,7 +211,7 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
             </div>
           </div>
         ))}
-        <div ref={el => el?.scrollIntoView({ behavior: 'smooth' })} />
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
