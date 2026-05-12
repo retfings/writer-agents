@@ -6,7 +6,7 @@
 - **Type**: Full-stack AI-assisted novel writing platform
 - **Target**: Commercial web novel authors (番茄小说 style)
 - **Language**: zh-CN (UI & comments)
-- **Server**: Tencent Cloud Lighthouse, Nginx reverse proxy
+- **Server**: Tencent Cloud Lighthouse, Vite dev server
 
 ## Architecture Rules
 
@@ -39,21 +39,18 @@ Never query DB directly from frontend; always go through API routes.
 ## Deployment
 
 ```bash
-# Build & deploy frontend
-cd frontend && npm run build  # postbuild auto-copies to /var/www/novelflow
-
 # Build backend
 cd backend && npm run build
 
-# Restart services
-systemctl restart novelflow       # backend
+# Start services
+systemctl restart novelflow       # backend on :3000
 systemctl restart openclaw-gateway  # if needed
 
-# Nginx
-/usr/sbin/nginx -t && /usr/sbin/nginx -s reload
+# Start frontend (dev mode, port 80)
+cd frontend && npm run dev
 ```
 
-Nginx serves frontend from `/var/www/novelflow`. API proxied to `localhost:3001`.
+Frontend runs directly on port 80 via Vite dev server. API proxy to backend `:3000`.
 
 ### Git Push Rule
 

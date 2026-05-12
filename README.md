@@ -20,7 +20,7 @@
 | 后端 | Node.js + Express + TypeScript |
 | 数据库 | SQLite (better-sqlite3) |
 | AI | DeepSeek API (可扩展 OpenAI/Anthropic/Gemini) |
-| 部署 | Nginx 反代 + systemd |
+| 部署 | Vite dev server + systemd |
 
 ## 快速开始
 
@@ -46,19 +46,11 @@ cd frontend && npm install && npm run build
 ### 运行
 
 ```bash
-# 后端 (默认 :3001)
+# 后端 (默认 :3000)
 cd backend && node dist/index.js
 
-# 前端开发
+# 前端 (直接运行在 80 端口)
 cd frontend && npm run dev
-```
-
-### 部署
-
-```bash
-# 构建并部署到 Nginx
-cd frontend && npm run build  # postbuild 自动部署到 /var/www/novelflow
-sudo systemctl restart novelflow
 ```
 
 ## 项目结构
