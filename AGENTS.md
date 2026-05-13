@@ -38,6 +38,23 @@ Never query DB directly from frontend; always go through API routes.
 
 ## Deployment
 
+### Docker 部署（推荐）
+
+```bash
+# 1. 进入 docker 目录
+cd docker
+
+# 2. 构建镜像
+docker build -t novelflow .
+
+# 3. 运行容器（需先配置 .env）
+docker run -d -p 80:80 --name novelflow \
+  --env-file .env \
+  novelflow
+```
+
+### 传统部署
+
 ```bash
 # Build backend
 cd backend && npm run build
@@ -51,6 +68,8 @@ cd frontend && npm run dev
 ```
 
 Frontend runs directly on port 80 via Vite dev server. API proxy to backend `:3000`.
+
+Docker 镜像架构：Nginx（静态文件 + API 代理） + Node.js（后端 API）
 
 ### Git Push Rule
 

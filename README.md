@@ -20,7 +20,7 @@
 | 后端 | Node.js + Express + TypeScript |
 | 数据库 | SQLite (better-sqlite3) |
 | AI | DeepSeek API (可扩展 OpenAI/Anthropic/Gemini) |
-| 部署 | Vite dev server + systemd |
+| 部署 | Docker + Nginx |
 
 ## 快速开始
 
@@ -76,9 +76,72 @@ writer-agents/
 │   │   ├── api.ts         # HTTP client
 │   │   └── types.ts       # 前端类型
 │   └── package.json
-├── nginx.conf
+├── docker/
+│   ├── Dockerfile         # 多阶段构建镜像
+│   ├── nginx.conf         # Nginx 配置
+│   ├── start.sh           # 启动脚本
+│   └── .dockerignore
 └── shared/types.ts
 ```
+
+## Docker 部署（推荐）
+
+使用 Docker 一键部署到 `writer.kangyuetech.cn`
+
+### 环境要求
+
+- Docker ≥ 20.10
+- Docker Compose ≥ 2.0（可选）
+
+### 构建并运行
+
+```bash
+# 1. 进入 docker 目录
+cd docker
+
+# 2. 创建 .env 文件
+cp ../.env.example .env
+# 编辑 .env，填入 OPENAI_API_KEY 和 JWT_SECRET
+
+# 3. 构建镜像
+docker build -t novelflow .
+
+# 4. 运行容器
+docker run -d -p 80:80 --name novelflow \
+  --env-file .env \
+  novelflow
+```
+
+### 使用 Docker Compose
+
+```yaml
+# docker-compose.yml
+services:
+  app:
+    build: .
+    ports:
+      - "80:80"
+    env_file:
+      - .env
+    restart: unless-stopped
+```
+
+```bash
+docker compose up -d
+```
+
+### 环境变量说明
+
+| 变量 | 必填 | 说明 |
+|---|---|---|
+| `OPENAI_API_KEY` | 是 | DeepSeek API Key |
+| `JWT_SECRET` | 是 | JWT 签名密钥 |
+| `OPENAI_BASE_URL` | 否 | API 地址，默认 `https://api.deepseek.com` |
+| `CORS_ORIGIN` | 否 | CORS 允许的源，默认 `http://writer.kangyuetech.cn` |
+
+### 访问
+
+部署后访问 `http://writer.kangyuetech.cn`（需配置 DNS 解析到服务器 IP）
 
 ## API
 
