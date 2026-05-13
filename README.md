@@ -101,7 +101,7 @@ cd docker
 
 # 2. 创建 .env 文件
 cp ../.env.example .env
-# 编辑 .env，填入 OPENAI_API_KEY 和 JWT_SECRET
+# 编辑 .env，填入 DEEPSEEK_API_KEY 和 JWT_SECRET
 
 # 3. 构建镜像
 docker build -t novelflow .
