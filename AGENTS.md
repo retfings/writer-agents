@@ -60,8 +60,7 @@ docker run -d -p 80:80 --name novelflow \
 cd backend && npm run build
 
 # Start services
-systemctl restart novelflow       # backend on :3000
-systemctl restart openclaw-gateway  # if needed
+systemctl restart novelflow       
 
 # Start frontend (dev mode, port 80)
 cd frontend && npm run dev
