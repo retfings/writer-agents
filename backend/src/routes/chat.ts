@@ -131,33 +131,54 @@ ${currentChapter ? `当前章节：第${currentChapter.number}章 ${currentChapt
     res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
     res.flushHeaders();
 
+    const abortController = new AbortController();
+    const stopFlag = { stopped: false };
+
+    req.on('close', () => {
+      if (!stopFlag.stopped) {
+        stopFlag.stopped = true;
+        abortController.abort();
+      }
+    });
+
     const { default: OpenAI } = await import('openai');
     const client = new OpenAI({
       apiKey: process.env.DEEPSEEK_API_KEY || '',
       baseURL: 'https://api.deepseek.com/v1',
     });
 
-    const stream = await client.chat.completions.create({
-      model: 'deepseek-chat',
-      messages: messages as any,
-      temperature: 0.7,
-      max_tokens: 4096,
-      stream: true,
-    });
-
     let fullContent = '';
     let inputTokens = 0;
     let outputTokens = 0;
 
-    for await (const chunk of stream) {
-      const delta = chunk.choices?.[0]?.delta?.content;
-      if (delta) {
-        fullContent += delta;
-        res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
+    try {
+      const stream = await client.chat.completions.create({
+        model: 'deepseek-chat',
+        messages: messages as any,
+        temperature: 0.7,
+        max_tokens: 4096,
+        stream: true,
+      }, {
+        signal: abortController.signal,
+      });
+
+      for await (const chunk of stream) {
+        if (stopFlag.stopped) break;
+        const delta = chunk.choices?.[0]?.delta?.content;
+        if (delta) {
+          fullContent += delta;
+          res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
+        }
+        if (chunk.usage) {
+          inputTokens = chunk.usage.prompt_tokens || 0;
+          outputTokens = chunk.usage.completion_tokens || 0;
+        }
       }
-      if (chunk.usage) {
-        inputTokens = chunk.usage.prompt_tokens || 0;
-        outputTokens = chunk.usage.completion_tokens || 0;
+    } catch (err: any) {
+      if (err.name === 'AbortError' || stopFlag.stopped) {
+        stopFlag.stopped = true;
+      } else {
+        throw err;
       }
     }
 

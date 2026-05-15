@@ -30,6 +30,8 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
   const [showHistory, setShowHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
+  const stoppingRef = useRef(false);
 
   // Auto-scroll to bottom when messages update, but only if user is near bottom
   useEffect(() => {
@@ -62,6 +64,7 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
+    stoppingRef.current = false;
 
     const assistantMsg: Message = {
       id: (Date.now() + 1).toString(),
@@ -76,11 +79,16 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
       if (!resp.ok) throw new Error('请求失败');
       const reader = resp.body?.getReader();
       if (!reader) throw new Error('No reader');
+      readerRef.current = reader;
 
       const decoder = new TextDecoder();
       let buffer = '';
 
       while (true) {
+        if (stoppingRef.current) {
+          reader.cancel();
+          break;
+        }
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
@@ -109,13 +117,22 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
         }
       }
     } catch (err: any) {
-      setMessages(prev => prev.map(m =>
-        m.id === assistantMsg.id
-          ? { ...m, content: '❌ 对话失败: ' + err.message, isStreaming: false }
-          : m
-      ));
+      if (err.name === 'AbortError' || stoppingRef.current) {
+        setMessages(prev => prev.map(m =>
+          m.id === assistantMsg.id
+            ? { ...m, content: m.content + (stoppingRef.current ? '\n\n[已停止]' : ''), isStreaming: false }
+            : m
+        ));
+      } else {
+        setMessages(prev => prev.map(m =>
+          m.id === assistantMsg.id
+            ? { ...m, content: '❌ 对话失败: ' + err.message, isStreaming: false }
+            : m
+        ));
+      }
     } finally {
       setLoading(false);
+      readerRef.current = null;
     }
   };
 
@@ -124,6 +141,10 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
       e.preventDefault();
       handleSend(input);
     }
+  };
+
+  const handleStop = () => {
+    stoppingRef.current = true;
   };
 
   return (
@@ -238,13 +259,22 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
             rows={2}
             disabled={loading}
           />
-          <button
-            onClick={() => handleSend(input)}
-            disabled={loading || !input.trim()}
-            className="bg-orange-500 text-white px-4 rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50 self-end h-9 shrink-0"
-          >
-            发送
-          </button>
+          {loading ? (
+            <button
+              onClick={handleStop}
+              className="bg-red-500 text-white px-4 rounded-lg text-sm font-medium hover:bg-red-600 self-end h-9 shrink-0"
+            >
+              停止
+            </button>
+          ) : (
+            <button
+              onClick={() => handleSend(input)}
+              disabled={loading || !input.trim()}
+              className="bg-orange-500 text-white px-4 rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50 self-end h-9 shrink-0"
+            >
+              发送
+            </button>
+          )}
         </div>
       </div>
     </div>
