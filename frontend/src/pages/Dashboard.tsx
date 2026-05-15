@@ -37,7 +37,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (aiStep !== 'generating') return;
 
-    const steps: Array<'thinking' | 'titles' | 'synopsis' | 'done'> = ['thinking', 'titles', 'synopsis', 'done'];
+    const steps: Array<'thinking' | 'titles' | 'synopsis'> = ['thinking', 'titles', 'synopsis'];
     let currentIndex = 0;
 
     const interval = setInterval(() => {
