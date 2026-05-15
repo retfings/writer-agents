@@ -62,9 +62,13 @@ export abstract class BaseAgent {
   protected async callModelWithApproval(opts: AgentCallOptions): Promise<AgentResult> {
     const { approvalMode, projectId, userId } = this.approvalContext;
 
+    console.log(`[Approval] callModelWithApproval called. mode=${approvalMode}, projectId=${projectId}`);
+
     if (approvalMode === 'manual' && projectId && userId) {
       const systemPrompt = opts.messages.find(m => m.role === 'system')?.content || '';
       const userPrompt = opts.messages.find(m => m.role === 'user')?.content || '';
+
+      console.log(`[Approval] Creating approval request for ${this.role}. systemPrompt length=${systemPrompt.length}, userPrompt length=${userPrompt.length}`);
 
       const requestId = createApprovalRequest({
         projectId,
@@ -74,18 +78,25 @@ export abstract class BaseAgent {
         userPrompt,
       });
 
+      console.log(`[Approval] Created request: ${requestId}, waiting for approval...`);
+
       const result = await waitForApproval(requestId);
+
+      console.log(`[Approval] User responded: approved=${result.approved}`);
 
       if (!result.approved) {
         throw new Error('LLM 调用已被用户拒绝');
       }
 
       if (result.llmResponse) {
+        console.log(`[Approval] Using cached response`);
         return {
           role: this.role,
           content: result.llmResponse,
         };
       }
+
+      console.log(`[Approval] Proceeding to call LLM after approval`);
     }
 
     return this.callModel(opts);

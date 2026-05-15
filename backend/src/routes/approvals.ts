@@ -22,6 +22,8 @@ router.get('/project/:projectId/pending', (req: Request, res: Response) => {
     'SELECT * FROM llm_approval_requests WHERE project_id = ? AND status = ? ORDER BY created_at DESC'
   ).all(req.params.projectId, 'pending') as any[];
 
+  console.log(`[Approvals] GET /project/${req.params.projectId}/pending - found ${requests.length} requests`);
+
   res.json({
     requests: requests.map(r => ({
       id: r.id,

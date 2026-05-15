@@ -152,6 +152,8 @@ router.post('/:projectId/write', async (req: Request, res: Response) => {
     return;
   }
 
+  console.log(`[Write] project.approval_mode = ${project.approval_mode}`);
+
   const { chapterNumber, instructions } = req.body;
   if (!chapterNumber) {
     res.status(400).json({ error: '请指定章节号' });

@@ -126,8 +126,10 @@ ${currentChapter ? `当前章节：第${currentChapter.number}章 ${currentChapt
     messages.push({ role: 'user', content: message });
 
     // Check approval mode
+    console.log(`[Chat] approval_mode = ${project.approval_mode}`);
     if (project.approval_mode === 'manual') {
       const user = (req as any).user;
+      console.log(`[Chat] Creating approval request for chat`);
       const requestId = createApprovalRequest({
         projectId,
         userId: user.id,
@@ -135,14 +137,17 @@ ${currentChapter ? `当前章节：第${currentChapter.number}章 ${currentChapt
         systemPrompt,
         userPrompt: message,
       });
+      console.log(`[Chat] Waiting for approval... requestId=${requestId}`);
 
       const approvalResult = await waitForApproval(requestId);
+      console.log(`[Chat] Approval result: approved=${approvalResult.approved}`);
 
       if (!approvalResult.approved) {
         res.setHeader('Content-Type', 'application/json');
         res.status(403).json({ error: 'LLM 调用已被用户拒绝' });
         return;
       }
+      console.log(`[Chat] Proceeding with LLM call after approval`);
     }
 
     // Set up SSE
