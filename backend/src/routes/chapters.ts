@@ -216,7 +216,7 @@ router.post('/:projectId/write', async (req: Request, res: Response) => {
         keyEvents: JSON.parse(existingChapter.key_events || '[]'),
         characters: JSON.parse(existingChapter.characters || '[]'),
         povCharacter: '',
-        estimatedWords: 3000,
+        estimatedWords: Math.round((project.target_words || 200000) / (project.total_chapters || 100)),
       } : undefined,
       previousContent,
       previousChapterEnd,

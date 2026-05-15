@@ -46,9 +46,12 @@ export class AgentOrchestrator {
 
     // Safety: truncate very large responses
     const content = result.content.slice(0, 200000);
-    
+
+    // Calculate words per chapter
+    const wordsPerChapter = Math.round(context.targetWords / totalChapters);
+
     // Parse and deduplicate
-    let chapters = this.parseOutlineToChapters(content);
+    let chapters = this.parseOutlineToChapters(content, wordsPerChapter);
     
     // Remove duplicate titles
     const seen = new Set<string>();
@@ -193,30 +196,30 @@ export class AgentOrchestrator {
     });
   }
 
-  private parseOutlineToChapters(outline: string, startNumber: number = 1): ChapterOutline[] {
+  private parseOutlineToChapters(outline: string, startNumber: number = 1, wordsPerChapter: number = 3000): ChapterOutline[] {
     const chapters: ChapterOutline[] = [];
 
     // First pass: split by "第N章" markers
     const parts = outline.split(/\n(?=第\d+章[：:\s])/);
-    
+
     for (const part of parts) {
       const headerMatch = part.match(/^第(\d+)章[：:\s]+(.+)/);
       if (!headerMatch) continue;
-      
+
       const num = parseInt(headerMatch[1]);
       const rawTitle = headerMatch[2].trim();
-      
+
       // Skip metadata-like lines
       if (/^(#{1,4}\s|\*\*|【|[《]|\d+-\d+章|卷[：:]|第\d+卷|概要|冲突|钩子|人物|字数|关键|核心|能力|成长|情感)/.test(rawTitle)) continue;
       if (rawTitle.length < 3 || rawTitle.length > 100) continue;
-      
+
       const title = rawTitle.replace(/^[#>\-\s]+|[#>\-\s]+$/g, '').trim();
-      
+
       // Extract summary from the rest of the block
       const body = part.slice(headerMatch[0].length);
       const summaryMatch = body.match(/>\s*(.+)/);
       const summary = (summaryMatch ? summaryMatch[1].trim() : body.trim().slice(0, 500)).slice(0, 500);
-      
+
       chapters.push({
         number: num,
         title: title.slice(0, 80),
@@ -224,7 +227,7 @@ export class AgentOrchestrator {
         keyEvents: [],
         characters: [],
         povCharacter: '',
-        estimatedWords: 3000,
+        estimatedWords: wordsPerChapter,
       });
     }
 
@@ -238,7 +241,7 @@ export class AgentOrchestrator {
           keyEvents: [],
           characters: [],
           povCharacter: '',
-          estimatedWords: 3000,
+          estimatedWords: wordsPerChapter,
         });
       });
     }
