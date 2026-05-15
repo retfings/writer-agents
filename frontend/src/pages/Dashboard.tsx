@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { projects } from '../api';
@@ -29,8 +29,28 @@ export default function Dashboard() {
   const [targetWords, setTargetWords] = useState(100000);
   const [totalChapters, setTotalChapters] = useState(50);
   const [error, setError] = useState('');
+  const [generatingStep, setGeneratingStep] = useState<'thinking' | 'titles' | 'synopsis' | 'done'>('thinking');
+  const controllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => { loadProjects(); }, []);
+
+  useEffect(() => {
+    if (aiStep !== 'generating') return;
+
+    const steps: Array<'thinking' | 'titles' | 'synopsis' | 'done'> = ['thinking', 'titles', 'synopsis', 'done'];
+    let currentIndex = 0;
+
+    const interval = setInterval(() => {
+      if (currentIndex < steps.length - 1) {
+        currentIndex++;
+        setGeneratingStep(steps[currentIndex]);
+      } else {
+        clearInterval(interval);
+      }
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [aiStep]);
 
   const loadProjects = async () => {
     try {
@@ -49,19 +69,66 @@ export default function Dashboard() {
       return;
     }
     setError('');
+    setGeneratingStep('thinking');
     setAiStep('generating');
+
+    const controller = new AbortController();
+    controllerRef.current = controller;
+
     try {
-      const result = await projects.generateIdea(storyIdea.trim());
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/projects/generate-idea', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ prompt: storyIdea.trim() }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || '生成失败');
+      }
+
+      const result = await response.json();
+
+      if (controllerRef.current !== controller) return;
+
+      setGeneratingStep('done');
       setAiResult(result);
       setTitle(result.titles[0] || '');
       setGenre(result.genre || 'urban');
       setSynopsis(result.synopsis || '');
       setFullSynopsis(result.fullSynopsis || '');
-      setAiStep('form');
+
+      setTimeout(() => {
+        if (controllerRef.current === controller) {
+          setAiStep('form');
+        }
+      }, 500);
     } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return;
+      }
+      if (controllerRef.current !== controller) return;
       setError(err.message);
       setAiStep('prompt');
+    } finally {
+      if (controllerRef.current === controller) {
+        controllerRef.current = null;
+      }
     }
+  };
+
+  const handleCancelGenerate = () => {
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+      controllerRef.current = null;
+    }
+    setAiStep('prompt');
+    setGeneratingStep('thinking');
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -166,9 +233,47 @@ export default function Dashboard() {
 
             {/* Step 2: Generating */}
             {aiStep === 'generating' && (
-              <div className="flex items-center gap-3 py-6 justify-center">
-                <span className="animate-pulse text-2xl">✍️</span>
-                <span className="text-gray-500 text-sm">AI 正在根据你的创意生成书名和简介...</span>
+              <div className="flex flex-col items-center gap-5 py-8">
+                <div className="relative">
+                  <span className="text-5xl animate-bounce">✍️</span>
+                  <span className="absolute -top-2 -right-2 text-orange-400 animate-pulse">
+                    {generatingStep === 'thinking' ? '💭' : generatingStep === 'titles' ? '📚' : generatingStep === 'synopsis' ? '✨' : '✅'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-sm ${generatingStep === 'thinking' ? 'text-orange-500 font-semibold' : 'text-gray-400'}`}>
+                    思考中
+                  </span>
+                  <span className="text-gray-300">→</span>
+                  <span className={`text-sm ${generatingStep === 'titles' ? 'text-orange-500 font-semibold' : generatingStep === 'synopsis' || generatingStep === 'done' ? 'text-gray-800' : 'text-gray-400'}`}>
+                    生成书名
+                  </span>
+                  <span className="text-gray-300">→</span>
+                  <span className={`text-sm ${generatingStep === 'synopsis' ? 'text-orange-500 font-semibold' : generatingStep === 'done' ? 'text-gray-800' : 'text-gray-400'}`}>
+                    撰写简介
+                  </span>
+                  <span className="text-gray-300">→</span>
+                  <span className={`text-sm ${generatingStep === 'done' ? 'text-green-500 font-semibold' : 'text-gray-400'}`}>
+                    完成
+                  </span>
+                </div>
+
+                <div className="h-1.5 w-64 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-orange-400 to-orange-500 rounded-full transition-all duration-500"
+                    style={{
+                      width: generatingStep === 'thinking' ? '15%' : generatingStep === 'titles' ? '45%' : generatingStep === 'synopsis' ? '75%' : '100%',
+                    }}
+                  />
+                </div>
+
+                <button
+                  onClick={handleCancelGenerate}
+                  className="text-xs text-gray-400 hover:text-red-500 transition"
+                >
+                  取消
+                </button>
               </div>
             )}
 
