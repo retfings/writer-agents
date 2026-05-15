@@ -176,4 +176,37 @@ export function updateApprovalResponse(requestId: string, llmResponse: string): 
   `).run(llmResponse, requestId);
 }
 
+// Debug endpoint - list all approval requests for a project (including non-pending)
+router.get('/project/:projectId/debug', (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const db = getDb();
+
+  const project = db.prepare('SELECT id FROM projects WHERE id = ? AND user_id = ?')
+    .get(req.params.projectId, user.id);
+  if (!project) {
+    res.status(404).json({ error: '项目不存在' });
+    return;
+  }
+
+  const requests = db.prepare(
+    'SELECT * FROM llm_approval_requests WHERE project_id = ? ORDER BY created_at DESC LIMIT 10'
+  ).all(req.params.projectId) as any[];
+
+  res.json({
+    debug: true,
+    projectId: req.params.projectId,
+    totalRequests: requests.length,
+    requests: requests.map(r => ({
+      id: r.id,
+      projectId: r.project_id,
+      userId: r.user_id,
+      agentType: r.agent_type,
+      systemPrompt: r.system_prompt?.slice(0, 100) + '...',
+      userPrompt: r.user_prompt?.slice(0, 100) + '...',
+      status: r.status,
+      createdAt: r.created_at,
+    })),
+  });
+});
+
 export default router;

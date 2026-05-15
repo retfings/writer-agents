@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuid } from 'uuid';
 import { getDb } from '../db';
 import { authMiddleware } from '../middleware/auth';
+import { createApprovalRequest, waitForApproval } from './approvals';
 
 const router = Router();
 router.use(authMiddleware);
@@ -119,15 +120,47 @@ router.delete('/:id', (req: Request, res: Response) => {
 
 // SSE: Extract characters from selected chapters
 // NOTE: Not async - uses internal promise chain to avoid Express 4 interference
-router.post('/extract/:projectId/stream', (req: Request, res: Response) => {
+router.post('/extract/:projectId/stream', async (req: Request, res: Response) => {
   const user = (req as any).user;
   const db = getDb();
   const { chapterIds } = req.body as { chapterIds: string[] };
 
-  const project = db.prepare('SELECT id, title FROM projects WHERE id = ? AND user_id = ?')
+  const project = db.prepare('SELECT id, title, approval_mode FROM projects WHERE id = ? AND user_id = ?')
     .get(req.params.projectId, user.id) as any;
   if (!project) { res.status(404).json({ error: '项目不存在' }); return; }
   if (!chapterIds?.length) { res.status(400).json({ error: '请选择章节' }); return; }
+
+  // Check approval mode
+  const chapters = db.prepare(`
+    SELECT id, number, title, content, outline FROM chapters
+    WHERE project_id = ? AND id IN (${chapterIds.map(() => '?').join(',')})
+    ORDER BY number ASC
+  `).all(req.params.projectId, ...chapterIds) as any[];
+
+  if (!chapters.length) { res.status(400).json({ error: '未找到章节' }); return; }
+
+  const systemPrompt = `你是小说角色提取助手。只返回JSON，不要markdown代码块。`;
+  const userPrompt = `从小说《${project.title}》的 ${chapters.length} 个章节中提取角色。`;
+
+  if (project.approval_mode === 'manual') {
+    console.log('[Extract] Manual approval mode - creating approval request');
+    const requestId = createApprovalRequest({
+      projectId: req.params.projectId as string,
+      userId: user.id,
+      agentType: 'character',
+      systemPrompt,
+      userPrompt,
+    });
+
+    const approvalResult = await waitForApproval(requestId);
+    console.log('[Extract] Approval result:', approvalResult.approved);
+
+    if (!approvalResult.approved) {
+      res.status(403).json({ error: 'LLM 调用已被用户拒绝' });
+      return;
+    }
+    console.log('[Extract] Proceeding with character extraction after approval');
+  }
 
   // Set up SSE headers before any await to prevent Express from flushing early
   res.writeHead(200, {
@@ -160,18 +193,6 @@ router.post('/extract/:projectId/stream', (req: Request, res: Response) => {
     bytesWritten += Buffer.byteLength(payload);
     return res.write(payload);
   };
-
-  const chapters = db.prepare(`
-    SELECT id, number, title, content, outline FROM chapters
-    WHERE project_id = ? AND id IN (${chapterIds.map(() => '?').join(',')})
-    ORDER BY number ASC
-  `).all(req.params.projectId, ...chapterIds) as any[];
-
-  if (!chapters.length) {
-    send('error', { message: '未找到章节' });
-    res.end();
-    return;
-  }
 
   const existingChars = db.prepare('SELECT id, name, role, description, traits, relationships, arc FROM characters WHERE project_id = ?')
     .all(req.params.projectId) as any[];

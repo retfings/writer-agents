@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuid } from 'uuid';
 import { getDb } from '../db';
 import { authMiddleware } from '../middleware/auth';
+import { createApprovalRequest, waitForApproval } from './approvals';
 
 const router = Router();
 router.use(authMiddleware);
@@ -97,18 +98,49 @@ router.delete('/structure/:id', (req, res) => {
 // ── Unified SSE extraction ──
 // POST /api/analysis/extract/:projectId/stream
 // body: { chapterIds: string[], types: ('foreshadowing'|'conflicts'|'suspense'|'structure')[] }
-router.post('/extract/:projectId/stream', (req: Request, res: Response) => {
+router.post('/extract/:projectId/stream', async (req: Request, res: Response) => {
   const user = (req as any).user;
   const db = getDb();
   const { chapterIds, types } = req.body as { chapterIds: string[]; types: string[] };
 
   console.log('[Analysis] Request received. chapters:', chapterIds?.length, 'types:', types);
 
-  const project = db.prepare('SELECT id, title FROM projects WHERE id = ? AND user_id = ?')
+  const project = db.prepare('SELECT id, title, approval_mode FROM projects WHERE id = ? AND user_id = ?')
     .get(req.params.projectId, user.id) as any;
   if (!project) { res.status(404).json({ error: '项目不存在' }); return; }
   if (!chapterIds?.length) { res.status(400).json({ error: '请选择章节' }); return; }
   if (!types?.length) { res.status(400).json({ error: '请选择分析类型' }); return; }
+
+  const chapters = db.prepare(`
+    SELECT id, number, title, content, outline FROM chapters
+    WHERE project_id = ? AND id IN (${chapterIds.map(() => '?').join(',')})
+    ORDER BY number ASC
+  `).all(req.params.projectId, ...chapterIds) as any[];
+
+  if (!chapters.length) { res.status(400).json({ error: '未找到章节' }); return; }
+
+  const systemPrompt = `你是小说分析助手，分析伏笔、冲突、悬念和结构。`;
+  const userPrompt = `分析小说《${project.title}》的 ${chapters.length} 个章节，类型：${types.join(', ')}。`;
+
+  if (project.approval_mode === 'manual') {
+    console.log('[Analysis] Manual approval mode - creating approval request');
+    const requestId = createApprovalRequest({
+      projectId: req.params.projectId as string,
+      userId: user.id,
+      agentType: 'editor',
+      systemPrompt,
+      userPrompt,
+    });
+
+    const approvalResult = await waitForApproval(requestId);
+    console.log('[Analysis] Approval result:', approvalResult.approved);
+
+    if (!approvalResult.approved) {
+      res.status(403).json({ error: 'LLM 调用已被用户拒绝' });
+      return;
+    }
+    console.log('[Analysis] Proceeding with analysis after approval');
+  }
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -131,14 +163,6 @@ router.post('/extract/:projectId/stream', (req: Request, res: Response) => {
     bytesWritten += Buffer.byteLength(payload);
     return res.write(payload);
   };
-
-  const chapters = db.prepare(`
-    SELECT id, number, title, content, outline FROM chapters
-    WHERE project_id = ? AND id IN (${chapterIds.map(() => '?').join(',')})
-    ORDER BY number ASC
-  `).all(req.params.projectId, ...chapterIds) as any[];
-
-  if (!chapters.length) { send('error', { message: '未找到章节' }); res.end(); return; }
 
   console.log('[Analysis] Found', chapters.length, 'chapters. Starting async processing...');
   const isAborted = () => aborted;
