@@ -26,8 +26,8 @@ export default function Dashboard() {
   const [genre, setGenre] = useState('urban');
   const [synopsis, setSynopsis] = useState('');
   const [fullSynopsis, setFullSynopsis] = useState('');
-  const [targetWords, setTargetWords] = useState(200000);
-  const [totalChapters, setTotalChapters] = useState(100);
+  const [targetWords, setTargetWords] = useState(100000);
+  const [totalChapters, setTotalChapters] = useState(50);
   const [error, setError] = useState('');
 
   useEffect(() => { loadProjects(); }, []);
@@ -159,7 +159,7 @@ export default function Dashboard() {
                     🚀 一键生成
                   </button>
                   <button onClick={resetForm} className="text-gray-500 px-4 py-2.5 rounded-lg text-sm hover:bg-gray-100 min-h-[44px] sm:min-h-[40px]">取消</button>
-                  <button onClick={() => { setAiStep('form'); setTitle(''); setSynopsis(''); setGenre('urban'); setTargetWords(200000); setTotalChapters(100); }} className="text-gray-400 px-3 py-2.5 rounded-lg text-xs hover:bg-gray-50 ml-auto min-h-[44px] sm:min-h-[40px]">手动创建 →</button>
+                  <button onClick={() => { setAiStep('form'); setTitle(''); setSynopsis(''); setGenre('urban'); setTargetWords(100000); setTotalChapters(50); }} className="text-gray-400 px-3 py-2.5 rounded-lg text-xs hover:bg-gray-50 ml-auto min-h-[44px] sm:min-h-[40px]">手动创建 →</button>
                 </div>
               </div>
             )}
