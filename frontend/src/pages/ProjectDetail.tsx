@@ -355,8 +355,14 @@ export default function ProjectDetail() {
           </button>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500 text-white font-mono shrink-0">v2</span>
-            <h1 className="text-sm sm:text-base font-bold text-gray-800 truncate">{project.title}</h1>
+              <h1 className="text-sm sm:text-base font-bold text-gray-800 truncate">{project.title}</h1>
+              <button
+                onClick={() => navigator.clipboard.writeText(project.title)}
+                className="text-gray-400 hover:text-orange-500 transition shrink-0"
+                title="复制书名"
+              >
+                📋
+              </button>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
