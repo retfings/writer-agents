@@ -24,18 +24,28 @@ router.get('/project/:projectId/pending', (req: Request, res: Response) => {
 
   console.log(`[Approvals] GET /project/${req.params.projectId}/pending - found ${requests.length} requests`);
 
+  const mapped = requests.map(r => ({
+    id: r.id,
+    projectId: r.project_id,
+    userId: r.user_id,
+    agentType: r.agent_type,
+    systemPrompt: r.system_prompt,
+    userPrompt: r.user_prompt,
+    status: r.status,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }));
+
+  if (mapped.length > 0) {
+    console.log(`[Approvals] First request:`, {
+      id: mapped[0].id,
+      systemPromptLength: mapped[0].systemPrompt?.length,
+      userPromptLength: mapped[0].userPrompt?.length,
+    });
+  }
+
   res.json({
-    requests: requests.map(r => ({
-      id: r.id,
-      projectId: r.project_id,
-      userId: r.user_id,
-      agentType: r.agent_type,
-      systemPrompt: r.system_prompt,
-      userPrompt: r.user_prompt,
-      status: r.status,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
-    })),
+    requests: mapped,
   });
 });
 
@@ -137,6 +147,15 @@ export function createApprovalRequest(params: {
 }): string {
   const db = getDb();
   const id = uuid();
+  console.log(`[createApprovalRequest] Creating request:`, {
+    id,
+    projectId: params.projectId,
+    agentType: params.agentType,
+    systemPromptLength: params.systemPrompt.length,
+    userPromptLength: params.userPrompt.length,
+    systemPromptPreview: params.systemPrompt.slice(0, 100),
+    userPromptPreview: params.userPrompt.slice(0, 100),
+  });
   db.prepare(`
     INSERT INTO llm_approval_requests (id, project_id, user_id, agent_type, system_prompt, user_prompt, status)
     VALUES (?, ?, ?, ?, ?, ?, 'pending')
