@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { projects, chapters, characters, foreshadowing, notes } from '../api';
+import { projects, chapters, characters, foreshadowing, notes, approvals } from '../api';
 import ThreeColumnLayout from '../components/layout/ThreeColumnLayout';
 import Sidebar from '../components/sidebar/Sidebar';
 import ChapterContent from '../components/reader/ChapterContent';
@@ -11,6 +11,7 @@ import MobileBottomNav from '../components/mobile/MobileBottomNav';
 import MobileDrawer from '../components/mobile/MobileDrawer';
 import MobileFormatBubble from '../components/mobile/MobileFormatBubble';
 import CharacterExtractModal from '../components/character/CharacterExtractModal';
+import ApprovalDrawer from '../components/approval/ApprovalDrawer';
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +33,7 @@ export default function ProjectDetail() {
   // UI state
   const [generating, setGenerating] = useState(false);
   const [writing, setWriting] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
@@ -58,12 +60,32 @@ export default function ProjectDetail() {
     return saved ? parseInt(saved) : 3;
   });
 
+  // Approval state
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [showApprovalSettings, setShowApprovalSettings] = useState(false);
+
   useEffect(() => { if (id) loadAll(); }, [id]);
 
   // Persist reading settings
   useEffect(() => { localStorage.setItem('novelflow-fontSize', String(fontSize)); }, [fontSize]);
   useEffect(() => { localStorage.setItem('novelflow-theme', theme); }, [theme]);
   useEffect(() => { localStorage.setItem('novelflow-autosave', String(autoSaveInterval)); }, [autoSaveInterval]);
+
+  // Poll for pending approvals
+  useEffect(() => {
+    if (!id) return;
+
+    const loadPendingApprovals = async () => {
+      try {
+        const { requests } = await approvals.listPending(id);
+        setPendingApprovals(requests || []);
+      } catch {}
+    };
+
+    loadPendingApprovals();
+    const interval = setInterval(loadPendingApprovals, 2000);
+    return () => clearInterval(interval);
+  }, [id]);
 
   const loadAll = async () => {
     try {
@@ -131,6 +153,23 @@ export default function ProjectDetail() {
     } catch {}
   };
 
+  const reloadApprovals = async () => {
+    try {
+      const { requests } = await approvals.listPending(id!);
+      setPendingApprovals(requests || []);
+    } catch {}
+  };
+
+  const handleApprovalModeChange = async (mode: string) => {
+    try {
+      await projects.update(id!, { approvalMode: mode });
+      setProject((p: any) => ({ ...p, approvalMode: mode }));
+      setShowApprovalSettings(false);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   // Outline generation
   const handleGenerateOutline = async () => {
     setGenerating(true);
@@ -163,12 +202,15 @@ export default function ProjectDetail() {
   // Review chapter
   const handleReviewChapter = async () => {
     if (!activeChapter) return;
+    setReviewing(true);
     setError('');
     try {
       await chapters.review(activeChapter.id);
       await reloadChapters();
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setReviewing(false);
     }
   };
 
@@ -393,9 +435,10 @@ export default function ProjectDetail() {
                 {activeChapter.status === 'draft' && (
                   <button
                     onClick={handleReviewChapter}
-                    className="bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-blue-600"
+                    disabled={reviewing}
+                    className="bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-blue-600 disabled:opacity-50"
                   >
-                    🔍 AI 审校
+                    {reviewing ? '审校中...' : '🔍 AI 审校'}
                   </button>
                 )}
                 <button
@@ -476,6 +519,7 @@ export default function ProjectDetail() {
                   wordCount={activeChapter.wordCount || 0}
                   status={activeChapter.status || 'outline'}
                   outline={activeChapter.outline}
+                  agentNotes={activeChapter.agentNotes}
                   fontSize={fontSize}
                   theme={theme}
                   autoSaveInterval={autoSaveInterval}
@@ -568,6 +612,59 @@ export default function ProjectDetail() {
 
       {/* Mobile bottom nav & drawers */}
       <MobileBottomNav activeTab={mobileDrawer} onTabChange={setMobileDrawer} />
+
+      {/* Approval Drawer */}
+      <ApprovalDrawer
+        requests={pendingApprovals}
+        onUpdate={reloadApprovals}
+      />
+
+      {/* Approval Mode Toggle */}
+      <div className="fixed bottom-16 right-4 lg:bottom-4 z-40">
+        <button
+          onClick={() => setShowApprovalSettings(!showApprovalSettings)}
+          className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-colors ${
+            pendingApprovals.length > 0
+              ? 'bg-orange-500 text-white animate-pulse'
+              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+          }`}
+          title="LLM 审批设置"
+        >
+          ⚠️
+        </button>
+        {showApprovalSettings && (
+          <div className="absolute bottom-12 right-0 bg-white rounded-lg shadow-xl border border-gray-200 p-3 w-56">
+            <div className="text-xs font-medium text-gray-700 mb-2">LLM 审批模式</div>
+            <div className="space-y-1">
+              <button
+                onClick={() => handleApprovalModeChange('auto')}
+                className={`w-full text-left px-3 py-2 rounded text-xs ${
+                  project?.approvalMode === 'auto'
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                🚀 自动批准（默认）
+              </button>
+              <button
+                onClick={() => handleApprovalModeChange('manual')}
+                className={`w-full text-left px-3 py-2 rounded text-xs ${
+                  project?.approvalMode === 'manual'
+                    ? 'bg-orange-50 text-orange-700 border border-orange-200'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                ⏳ 手动批准
+              </button>
+            </div>
+            {pendingApprovals.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-orange-600">
+                {pendingApprovals.length} 个待审批请求
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       <MobileDrawer open={mobileDrawer === 'outline'} onClose={() => setMobileDrawer('none')} title="大纲 & 创作">
         <div className="text-sm">
           <Sidebar

@@ -171,3 +171,15 @@ export const notes = {
   delete: (id: string) =>
     request<{ success: boolean }>(`/notes/${id}`, { method: 'DELETE' }),
 };
+
+// Approvals
+export const approvals = {
+  listPending: (projectId: string) =>
+    request<{ requests: any[] }>(`/approvals/project/${projectId}/pending`),
+  get: (id: string) =>
+    request<{ request: any }>(`/approvals/${id}`),
+  approve: (id: string) =>
+    request<{ success: boolean }>(`/approvals/${id}/approve`, { method: 'POST' }),
+  reject: (id: string) =>
+    request<{ success: boolean }>(`/approvals/${id}/reject`, { method: 'POST' }),
+};

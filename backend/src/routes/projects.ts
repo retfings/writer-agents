@@ -77,7 +77,7 @@ router.get('/:id', (req: Request, res: Response) => {
 // Update project
 router.put('/:id', (req: Request, res: Response) => {
   const user = (req as any).user;
-  const { title, genre, synopsis, targetWords, status } = req.body;
+  const { title, genre, synopsis, targetWords, status, approvalMode } = req.body;
   const db = getDb();
 
   const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?')
@@ -88,15 +88,16 @@ router.put('/:id', (req: Request, res: Response) => {
   }
 
   db.prepare(`
-    UPDATE projects SET 
+    UPDATE projects SET
       title = COALESCE(?, title),
       genre = COALESCE(?, genre),
       synopsis = COALESCE(?, synopsis),
       target_words = COALESCE(?, target_words),
       status = COALESCE(?, status),
+      approval_mode = COALESCE(?, approval_mode),
       updated_at = datetime('now')
     WHERE id = ?
-  `).run(title, genre, synopsis, targetWords, status, req.params.id);
+  `).run(title, genre, synopsis, targetWords, status, approvalMode, req.params.id);
 
   const updated = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id) as any;
   res.json({

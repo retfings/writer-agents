@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { logger } from '../logger';
+import { createApprovalRequest, waitForApproval } from './approvals';
 
 const router = Router();
 router.use(authMiddleware as any);
@@ -35,7 +36,7 @@ router.delete('/project/:projectId/history', (req: Request, res: Response) => {
 
 // AI Chat (SSE streaming)
 router.post('/project/:projectId/chat', async (req: Request, res: Response) => {
-  const { projectId } = req.params;
+  const projectId = req.params.projectId as string;
   const { message, chapterId } = req.body;
 
   if (!message || !message.trim()) {
@@ -123,6 +124,26 @@ ${currentChapter ? `当前章节：第${currentChapter.number}章 ${currentChapt
       messages.push({ role: h.role, content: h.content });
     }
     messages.push({ role: 'user', content: message });
+
+    // Check approval mode
+    if (project.approval_mode === 'manual') {
+      const user = (req as any).user;
+      const requestId = createApprovalRequest({
+        projectId,
+        userId: user.id,
+        agentType: 'chat',
+        systemPrompt,
+        userPrompt: message,
+      });
+
+      const approvalResult = await waitForApproval(requestId);
+
+      if (!approvalResult.approved) {
+        res.setHeader('Content-Type', 'application/json');
+        res.status(403).json({ error: 'LLM 调用已被用户拒绝' });
+        return;
+      }
+    }
 
     // Set up SSE
     res.setHeader('Content-Type', 'text/event-stream');

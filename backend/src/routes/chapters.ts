@@ -21,24 +21,30 @@ function inferPacing(content: string): string {
   return 'medium';
 }
 
-function getOrchestrator(projectId: string): AgentOrchestrator {
-  if (!orchestrators.has(projectId)) {
+function getOrchestrator(projectId: string, userId: string, approvalMode: string): AgentOrchestrator {
+  const cacheKey = `${projectId}:${approvalMode}`;
+  if (!orchestrators.has(cacheKey)) {
     const db = getDb();
     const project = db.prepare('SELECT agent_config FROM projects WHERE id = ?').get(projectId) as any;
     const configs: AgentConfig[] = project ? JSON.parse(project.agent_config || '[]') : [];
-    
+
+    let orchestrator: AgentOrchestrator;
     if (configs.length === 0) {
-      // Default configs with DeepSeek
       const { getAgentConfigs } = require('../models');
-      const orchestrator = new AgentOrchestrator(getAgentConfigs('deepseek'));
-      orchestrators.set(projectId, orchestrator);
-      return orchestrator;
+      orchestrator = new AgentOrchestrator(getAgentConfigs('deepseek'));
+    } else {
+      orchestrator = new AgentOrchestrator(configs);
     }
-    
-    const orchestrator = new AgentOrchestrator(configs);
-    orchestrators.set(projectId, orchestrator);
+
+    orchestrator.setApprovalContext({
+      projectId,
+      userId,
+      approvalMode: approvalMode as 'auto' | 'manual',
+    });
+
+    orchestrators.set(cacheKey, orchestrator);
   }
-  return orchestrators.get(projectId)!;
+  return orchestrators.get(cacheKey)!;
 }
 
 // List chapters for a project
@@ -106,7 +112,7 @@ router.post('/:projectId/generate-outline', async (req: Request, res: Response) 
   }
 
   try {
-    const orchestrator = getOrchestrator(req.params.projectId as string);
+    const orchestrator = getOrchestrator(req.params.projectId as string, user.id, project.approval_mode);
     const result = await orchestrator.generateOutline({
       genre: project.genre as string,
       synopsis: project.synopsis as string,
@@ -205,7 +211,7 @@ router.post('/:projectId/write', async (req: Request, res: Response) => {
   ).all(req.params.projectId) as any[];
 
   try {
-    const orchestrator = getOrchestrator(req.params.projectId as string);
+    const orchestrator = getOrchestrator(req.params.projectId as string, user.id, project.approval_mode);
     const result = await orchestrator.writeChapter({
       projectId: req.params.projectId as string,
       chapterNumber: chapterNumber as number,
@@ -270,7 +276,7 @@ router.post('/:id/review', async (req: Request, res: Response) => {
   const db = getDb();
 
   const chapter = db.prepare(`
-    SELECT c.*, p.genre, p.id as project_id FROM chapters c
+    SELECT c.*, p.genre, p.id as project_id, p.approval_mode, p.user_id as owner_user_id FROM chapters c
     JOIN projects p ON c.project_id = p.id
     WHERE c.id = ? AND p.user_id = ?
   `).get(req.params.id, user.id) as any;
@@ -284,7 +290,7 @@ router.post('/:id/review', async (req: Request, res: Response) => {
     .all(chapter.project_id) as any[];
 
   try {
-    const orchestrator = getOrchestrator(chapter.project_id);
+    const orchestrator = getOrchestrator(chapter.project_id, user.id, chapter.approval_mode);
     const result = await orchestrator.reviewChapter({
       content: chapter.content,
       chapterNumber: chapter.number,
@@ -301,6 +307,14 @@ router.post('/:id/review', async (req: Request, res: Response) => {
       })),
     });
 
+    db.prepare(`
+      UPDATE chapters SET
+        agent_notes = ?,
+        status = 'review',
+        updated_at = datetime('now')
+      WHERE id = ?
+    `).run(JSON.stringify([result]), req.params.id);
+
     res.json(result);
   } catch (err: any) {
     console.error('Review chapter error:', err);
@@ -314,7 +328,7 @@ router.post('/:id/rewrite', async (req: Request, res: Response) => {
   const db = getDb();
 
   const chapter = db.prepare(`
-    SELECT c.*, p.genre, p.id as project_id FROM chapters c
+    SELECT c.*, p.genre, p.id as project_id, p.approval_mode FROM chapters c
     JOIN projects p ON c.project_id = p.id
     WHERE c.id = ? AND p.user_id = ?
   `).get(req.params.id, user.id) as any;
@@ -341,7 +355,7 @@ router.post('/:id/rewrite', async (req: Request, res: Response) => {
   ).all(chapter.project_id) as any[];
 
   try {
-    const orchestrator = getOrchestrator(chapter.project_id);
+    const orchestrator = getOrchestrator(chapter.project_id, user.id, chapter.approval_mode);
     const result = await orchestrator.rewriteChapter({
       chapterNumber: chapter.number,
       chapterTitle: chapter.title,

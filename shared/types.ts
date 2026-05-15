@@ -5,6 +5,21 @@ export type AgentRole = 'planner' | 'writer' | 'editor' | 'character' | 'orchest
 export type NovelGenre = 'urban' | 'fantasy' | 'xianxia' | 'scifi' | 'historical' | 'romance' | 'suspense';
 export type ProjectStatus = 'draft' | 'writing' | 'completed' | 'published';
 export type ChapterStatus = 'outline' | 'draft' | 'review' | 'done';
+export type ApprovalMode = 'auto' | 'manual';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export interface ApprovalRequest {
+  id: string;
+  projectId: string;
+  userId: string;
+  agentType: AgentRole;
+  systemPrompt: string;
+  userPrompt: string;
+  status: ApprovalStatus;
+  llmResponse?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface ModelConfig {
   provider: ModelProvider;
@@ -29,8 +44,10 @@ export interface Project {
   genre: NovelGenre;
   synopsis: string;
   targetWords: number;
+  totalChapters?: number;
   status: ProjectStatus;
   agentConfig: AgentConfig[];
+  approvalMode: ApprovalMode;
   createdAt: string;
   updatedAt: string;
 }

@@ -43,8 +43,24 @@ function initSchema(db: Database.Database): void {
       status TEXT DEFAULT 'draft',
       agent_config TEXT DEFAULT '[]',
       model_provider TEXT DEFAULT 'deepseek',
+      approval_mode TEXT DEFAULT 'auto',
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS llm_approval_requests (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      agent_type TEXT NOT NULL,
+      system_prompt TEXT NOT NULL,
+      user_prompt TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      llm_response TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
@@ -164,11 +180,19 @@ function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_conflicts_project ON conflicts(project_id);
     CREATE INDEX IF NOT EXISTS idx_suspense_project ON suspense(project_id);
     CREATE INDEX IF NOT EXISTS idx_story_structures_project ON story_structures(project_id);
+    CREATE INDEX IF NOT EXISTS idx_llm_approval_requests_project ON llm_approval_requests(project_id, status);
   `);
 
   // Migration: add total_chapters to projects (safe to ignore if exists)
   try {
     db.exec(`ALTER TABLE projects ADD COLUMN total_chapters INTEGER DEFAULT 150`);
+  } catch (e: any) {
+    if (!e.message.includes('duplicate column')) throw e;
+  }
+
+  // Migration: add approval_mode to projects (safe to ignore if exists)
+  try {
+    db.exec(`ALTER TABLE projects ADD COLUMN approval_mode TEXT DEFAULT 'auto'`);
   } catch (e: any) {
     if (!e.message.includes('duplicate column')) throw e;
   }

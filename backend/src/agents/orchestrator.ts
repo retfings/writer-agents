@@ -1,4 +1,4 @@
-import type { 
+import type {
   AgentConfig, AgentResult, WriteRequest, WriteResult,
   WriteResult as WriteResultType, ChapterOutline, Character
 } from '../types';
@@ -7,12 +7,14 @@ import { PlannerAgent } from './planner';
 import { WriterAgent } from './writer';
 import { EditorAgent } from './editor';
 import { CharacterAgent } from './character';
+import { BaseAgent } from './base';
 
 export class AgentOrchestrator {
   private planner: PlannerAgent;
   private writer: WriterAgent;
   private editor: EditorAgent;
   private character: CharacterAgent;
+  private approvalContext: { projectId?: string; userId?: string; approvalMode?: 'auto' | 'manual' } = {};
 
   constructor(configs: AgentConfig[]) {
     const getConfig = (role: string) => {
@@ -25,6 +27,14 @@ export class AgentOrchestrator {
     this.writer = new WriterAgent(getConfig('writer'));
     this.editor = new EditorAgent(getConfig('editor'));
     this.character = new CharacterAgent(getConfig('character'));
+  }
+
+  setApprovalContext(ctx: { projectId?: string; userId?: string; approvalMode?: 'auto' | 'manual' }): void {
+    this.approvalContext = ctx;
+    const agents: BaseAgent[] = [this.planner, this.writer, this.editor, this.character];
+    for (const agent of agents) {
+      agent.setApprovalContext(ctx);
+    }
   }
 
   async generateOutline(context: {
