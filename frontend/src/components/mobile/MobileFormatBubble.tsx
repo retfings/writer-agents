@@ -15,6 +15,13 @@ export default function MobileFormatBubble({ onFormat }: Props) {
         setVisible(false);
         return;
       }
+
+      const editorArea = document.querySelector('[placeholder="在此编辑章节内容..."]');
+      if (!editorArea?.contains(sel.anchorNode)) {
+        setVisible(false);
+        return;
+      }
+
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       setPos({
