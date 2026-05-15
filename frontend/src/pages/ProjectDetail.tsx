@@ -357,7 +357,14 @@ export default function ProjectDetail() {
             <div className="flex items-center gap-2">
               <h1 className="text-sm sm:text-base font-bold text-gray-800 truncate">{project.title}</h1>
               <button
-                onClick={() => navigator.clipboard.writeText(project.title)}
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.value = project.title;
+                  document.body.appendChild(input);
+                  input.select();
+                  document.execCommand('copy');
+                  document.body.removeChild(input);
+                }}
                 className="text-gray-400 hover:text-orange-500 transition shrink-0"
                 title="复制书名"
               >
