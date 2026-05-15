@@ -106,6 +106,7 @@ export default function Dashboard() {
       setTimeout(() => {
         if (controllerRef.current === controller) {
           setAiStep('form');
+          controllerRef.current = null;
         }
       }, 500);
     } catch (err: any) {
@@ -115,10 +116,6 @@ export default function Dashboard() {
       if (controllerRef.current !== controller) return;
       setError(err.message);
       setAiStep('prompt');
-    } finally {
-      if (controllerRef.current === controller) {
-        controllerRef.current = null;
-      }
     }
   };
 
