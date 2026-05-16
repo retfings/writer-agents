@@ -36,18 +36,13 @@ git clone https://github.com/retfings/writer-agents.git
 cd writer-agents
 cp .env.example .env  # 配置 API keys
 
-# 后端
-cd backend && npm install && npm run build
-
-# 前端
-cd frontend && npm install && npm run build
 ```
 
 ### 运行
 
 ```bash
-# 后端 (默认 :3000)
-cd backend && node dist/index.js
+# 后端 (默认 :3000),如果已经 npm run dev 不要重复执行
+cd backend && npm run dev
 
 # 前端 (直接运行在 80 端口)
 cd frontend && npm run dev
