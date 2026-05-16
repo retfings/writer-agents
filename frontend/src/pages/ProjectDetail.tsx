@@ -427,18 +427,34 @@ export default function ProjectDetail() {
                   <button
                     onClick={handleWriteChapter}
                     disabled={writing}
-                    className="bg-orange-500 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-orange-600 disabled:opacity-50"
+                    className="bg-orange-500 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-orange-600 disabled:opacity-70 flex items-center gap-1"
                   >
-                    {writing ? '写作中...' : '✍️ AI 写作'}
+                    {writing ? (
+                      <>
+                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        写作中...
+                      </>
+                    ) : '✍️ AI 写作'}
                   </button>
                 )}
                 {activeChapter.status === 'draft' && (
                   <button
                     onClick={handleReviewChapter}
                     disabled={reviewing}
-                    className="bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-blue-600 disabled:opacity-50"
+                    className="bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-blue-600 disabled:opacity-70 flex items-center gap-1"
                   >
-                    {reviewing ? '审校中...' : '🔍 AI 审校'}
+                    {reviewing ? (
+                      <>
+                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        审校中...
+                      </>
+                    ) : '🔍 AI 审校'}
                   </button>
                 )}
                 <button
@@ -529,18 +545,30 @@ export default function ProjectDetail() {
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                <p className="text-4xl mb-3">📖</p>
-                <p className="text-sm mb-2">
-                  {chapterList.length === 0 ? '还没有章节' : '从左侧选择章节开始阅读'}
-                </p>
-                {chapterList.length === 0 && (
-                  <button
-                    onClick={handleGenerateOutline}
-                    disabled={generating}
-                    className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-600 disabled:opacity-50"
-                  >
-                    {generating ? '生成中...' : '🤖 AI 生成大纲'}
-                  </button>
+                {generating ? (
+                  <>
+                    <svg className="animate-spin h-12 w-12 text-orange-400 mb-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    <p className="text-base font-medium text-gray-600 mb-1">正在生成大纲</p>
+                    <p className="text-xs text-gray-400">AI 正在根据你的题材创作章节目录...</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-4xl mb-3">📖</p>
+                    <p className="text-sm mb-2">
+                      {chapterList.length === 0 ? '还没有章节' : '从左侧选择章节开始阅读'}
+                    </p>
+                    {chapterList.length === 0 && (
+                      <button
+                        onClick={handleGenerateOutline}
+                        className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-600"
+                      >
+                        🤖 AI 生成大纲
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             )

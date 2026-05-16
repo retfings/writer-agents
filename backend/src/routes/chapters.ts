@@ -23,6 +23,7 @@ function inferPacing(content: string): string {
 
 function getOrchestrator(projectId: string, userId: string, approvalMode: string): AgentOrchestrator {
   const cacheKey = `${projectId}:${approvalMode}`;
+  console.log(`[getOrchestrator] projectId=${projectId}, approvalMode=${approvalMode}, cacheKey=${cacheKey}`);
   if (!orchestrators.has(cacheKey)) {
     const db = getDb();
     const project = db.prepare('SELECT agent_config FROM projects WHERE id = ?').get(projectId) as any;

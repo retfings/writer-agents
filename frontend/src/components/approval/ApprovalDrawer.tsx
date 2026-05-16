@@ -34,6 +34,7 @@ export default function ApprovalDrawer({ requests, onUpdate }: ApprovalDrawerPro
       onUpdate();
     } catch (err) {
       console.error('批准失败:', err);
+      alert('批准失败: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setProcessing(null);
     }
@@ -46,6 +47,7 @@ export default function ApprovalDrawer({ requests, onUpdate }: ApprovalDrawerPro
       onUpdate();
     } catch (err) {
       console.error('拒绝失败:', err);
+      alert('拒绝失败: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setProcessing(null);
     }

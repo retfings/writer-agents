@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import ReviewNotes from './ReviewNotes';
 
 interface Props {
   title: string;
@@ -6,6 +7,7 @@ interface Props {
   wordCount: number;
   status: string;
   outline?: string;
+  agentNotes?: any[];
   fontSize?: number;
   theme?: 'light' | 'dark' | 'sepia';
   autoSaveInterval?: number;
@@ -14,7 +16,7 @@ interface Props {
 }
 
 export default function ChapterContent({
-  title, content, wordCount: _wordCount, status, outline,
+  title, content, wordCount: _wordCount, status, outline, agentNotes,
   fontSize = 16, theme = 'light',
   autoSaveInterval = 3,
   lastSavedAt,
@@ -24,6 +26,7 @@ export default function ChapterContent({
   const [text, setText] = useState(content);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
+  const [showReview, setShowReview] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveRef = useRef(onSave);
   saveRef.current = onSave;
@@ -194,8 +197,26 @@ export default function ChapterContent({
           }`}>
             {statusLabels[status] || status}
           </span>
+          {agentNotes && agentNotes.length > 0 && (
+            <button
+              onClick={() => setShowReview(!showReview)}
+              className={`text-[10px] px-1.5 py-px rounded cursor-pointer ${
+                showReview ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+              }`}
+            >
+              📝 审校意见 {agentNotes.length}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Review notes panel */}
+      {showReview && agentNotes && agentNotes.length > 0 && (
+        <ReviewNotes
+          content={typeof agentNotes[0] === 'string' ? agentNotes[0] : JSON.stringify(agentNotes[0], null, 2)}
+          theme={theme}
+        />
+      )}
 
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto">

@@ -60,23 +60,39 @@ export default function OutlineTree({
         <button
           onClick={onGenerateOutline}
           disabled={generating}
-          className="w-full bg-orange-500 text-white py-2 rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50 mb-2"
+          className="w-full bg-orange-500 text-white py-3 rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-70 mb-2 relative overflow-hidden"
         >
-          {generating ? '🤖 生成中...' : '🤖 AI 生成大纲'}
+          {generating ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+              正在生成大纲...
+            </span>
+          ) : '🤖 AI 生成大纲'}
         </button>
       ) : (
         <div className="flex gap-1.5 mb-2">
           <button
             onClick={onGenerateOutline}
             disabled={generating}
-            className="flex-1 bg-orange-50 text-orange-600 py-1.5 rounded text-xs hover:bg-orange-100 disabled:opacity-50"
+            className="flex-1 bg-orange-50 text-orange-600 py-1.5 rounded text-xs hover:bg-orange-100 disabled:opacity-50 flex items-center justify-center gap-1"
           >
-            {generating ? '生成中...' : '🔄 重新生成'}
+            {generating ? (
+              <>
+                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                生成中
+              </>
+            ) : '🔄 重新生成'}
           </button>
           {onDeleteAll && (
             <button
               onClick={onDeleteAll}
-              disabled={deletingAll}
+              disabled={deletingAll || generating}
               className="px-2 py-1.5 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
             >
               {deletingAll ? '...' : '🗑'}
