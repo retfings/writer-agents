@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import { projects } from '../api';
+import { projects, approvals } from '../api';
 import PromptTemplateInput from '../components/PromptTemplateInput';
+import ApprovalDrawer from '../components/approval/ApprovalDrawer';
 
 const genreNames: Record<string, string> = {
   urban: '都市', fantasy: '玄幻', xianxia: '仙侠', scifi: '科幻',
@@ -14,11 +15,12 @@ const statusNames: Record<string, string> = {
 };
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateApprovalMode } = useAuth();
   const navigate = useNavigate();
   const [projectList, setProjectList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [aiStep, setAiStep] = useState<'prompt' | 'generating' | 'form'>('prompt');
   const [storyIdea, setStoryIdea] = useState('');
   const [aiResult, setAiResult] = useState<any>(null);
@@ -31,6 +33,8 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [generatingStep, setGeneratingStep] = useState<'thinking' | 'titles' | 'synopsis' | 'done'>('thinking');
   const controllerRef = useRef<AbortController | null>(null);
+  const [tempProjectId, setTempProjectId] = useState<string | null>(null);
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
 
   useEffect(() => { loadProjects(); }, []);
 
@@ -52,6 +56,22 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [aiStep]);
 
+  // Poll for pending approvals when there's a temp project
+  useEffect(() => {
+    if (!tempProjectId) return;
+
+    const loadPendingApprovals = async () => {
+      try {
+        const { requests } = await approvals.listPending(tempProjectId);
+        setPendingApprovals(requests || []);
+      } catch {}
+    };
+
+    loadPendingApprovals();
+    const interval = setInterval(loadPendingApprovals, 1000);
+    return () => clearInterval(interval);
+  }, [tempProjectId]);
+
   const loadProjects = async () => {
     try {
       const { projects: list } = await projects.list();
@@ -71,11 +91,32 @@ export default function Dashboard() {
     setError('');
     setGeneratingStep('thinking');
     setAiStep('generating');
+    setPendingApprovals([]);
+    setTempProjectId(null);
 
     const controller = new AbortController();
     controllerRef.current = controller;
 
+    let effectiveProjectId: string | null = null;
+
     try {
+      // In manual mode, create a temporary project for approval tracking
+      if (user?.approvalMode === 'manual') {
+        try {
+          const { project } = await projects.create({
+            title: `草稿-${Date.now()}`,
+            genre: 'urban',
+            synopsis: '',
+            targetWords: 100000,
+            totalChapters: 50,
+          });
+          effectiveProjectId = project.id;
+          setTempProjectId(project.id);
+        } catch (err) {
+          console.error('Failed to create temp project:', err);
+        }
+      }
+
       const token = localStorage.getItem('token');
       const response = await fetch('/api/projects/generate-idea', {
         method: 'POST',
@@ -83,7 +124,7 @@ export default function Dashboard() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ prompt: storyIdea.trim() }),
+        body: JSON.stringify({ prompt: storyIdea.trim(), projectId: effectiveProjectId }),
         signal: controller.signal,
       });
 
@@ -102,6 +143,7 @@ export default function Dashboard() {
       setGenre(result.genre || 'urban');
       setSynopsis(result.synopsis || '');
       setFullSynopsis(result.fullSynopsis || '');
+      setTempProjectId(null);
 
       setTimeout(() => {
         if (controllerRef.current === controller) {
@@ -116,6 +158,7 @@ export default function Dashboard() {
       if (controllerRef.current !== controller) return;
       setError(err.message);
       setAiStep('prompt');
+      setTempProjectId(null);
     }
   };
 
@@ -181,9 +224,55 @@ export default function Dashboard() {
                 <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
               </svg>
             </a>
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className={`text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1 rounded-lg transition min-h-[36px] sm:min-h-[32px] ${
+                user?.approvalMode === 'manual' ? 'bg-orange-100 text-orange-600' : 'text-gray-500 hover:bg-gray-100'
+              }`}
+              title="LLM 审批设置"
+            >
+              ⚙️ {user?.approvalMode === 'manual' ? '手动' : '自动'}
+            </button>
             <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">{user?.displayName}</span>
             <button onClick={logout} className="text-xs sm:text-sm text-gray-500 hover:text-red-500 px-2 sm:px-3 py-1.5 sm:py-1 rounded-lg hover:bg-red-50 transition min-h-[36px] sm:min-h-[32px]">退出</button>
           </div>
+
+          {/* Settings Dropdown */}
+          {showSettings && (
+            <div className="absolute right-4 top-full mt-2 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-72 z-50">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3">⚙️ 默认设置</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1.5">新建项目时的 LLM 审批模式</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { updateApprovalMode('auto'); setShowSettings(false); }}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition ${
+                        user?.approvalMode === 'auto'
+                          ? 'bg-green-100 text-green-700 border-2 border-green-300'
+                          : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      🤖 自动
+                    </button>
+                    <button
+                      onClick={() => { updateApprovalMode('manual'); setShowSettings(false); }}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition ${
+                        user?.approvalMode === 'manual'
+                          ? 'bg-orange-100 text-orange-700 border-2 border-orange-300'
+                          : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      👆 手动批准
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1.5">
+                    {user?.approvalMode === 'manual' ? '✓ 已设为默认' : '当前默认：自动审批'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -463,6 +552,18 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+
+      {/* Approval Drawer for generate-idea */}
+      <ApprovalDrawer
+        requests={pendingApprovals}
+        onUpdate={() => {
+          if (tempProjectId) {
+            approvals.listPending(tempProjectId).then(({ requests }) => {
+              setPendingApprovals(requests || []);
+            });
+          }
+        }}
+      />
     </div>
   );
 }

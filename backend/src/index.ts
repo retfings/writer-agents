@@ -58,9 +58,21 @@ app.get('/api/me', authMiddleware, (req, res) => {
   const user = (req as any).user;
   const { getDb } = require('./db');
   const db = getDb();
-  const u = db.prepare('SELECT id, username, display_name, created_at FROM users WHERE id = ?').get(user.id) as any;
+  const u = db.prepare('SELECT id, username, display_name, approval_mode, created_at FROM users WHERE id = ?').get(user.id) as any;
   if (!u) return res.status(404).json({ error: '用户不存在' });
-  res.json({ user: { id: u.id, username: u.username, displayName: u.display_name, createdAt: u.created_at } });
+  res.json({ user: { id: u.id, username: u.username, displayName: u.display_name, approvalMode: u.approval_mode || 'auto', createdAt: u.created_at } });
+});
+
+app.patch('/api/me', authMiddleware, (req, res) => {
+  const user = (req as any).user;
+  const { getDb } = require('./db');
+  const db = getDb();
+  const { approvalMode } = req.body;
+  if (approvalMode !== undefined) {
+    db.prepare(`UPDATE users SET approval_mode = ?, updated_at = datetime('now') WHERE id = ?`).run(approvalMode, user.id);
+  }
+  const u = db.prepare('SELECT id, username, display_name, approval_mode, created_at FROM users WHERE id = ?').get(user.id) as any;
+  res.json({ user: { id: u.id, username: u.username, displayName: u.display_name, approvalMode: u.approval_mode || 'auto', createdAt: u.created_at } });
 });
 app.use('/api/projects', projectRoutes);
 app.use('/api/chapters', chapterRoutes);

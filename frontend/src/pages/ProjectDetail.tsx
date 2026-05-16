@@ -656,9 +656,9 @@ export default function ProjectDetail() {
               ? 'bg-orange-500 text-white animate-pulse'
               : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
           }`}
-          title="LLM 审批设置"
+          title={`LLM 审批：${project?.approvalMode === 'manual' ? '手动' : '自动'}`}
         >
-          ⚠️
+          ⚠️ {project?.approvalMode === 'manual' ? '手动' : '自动'}
         </button>
         {showApprovalSettings && (
           <div className="absolute bottom-12 right-0 bg-white rounded-lg shadow-xl border border-gray-200 p-3 w-56">

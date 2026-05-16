@@ -196,6 +196,13 @@ function initSchema(db: Database.Database): void {
   } catch (e: any) {
     if (!e.message.includes('duplicate column')) throw e;
   }
+
+  // Migration: add approval_mode to users (safe to ignore if exists)
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN approval_mode TEXT DEFAULT 'auto'`);
+  } catch (e: any) {
+    if (!e.message.includes('duplicate column')) throw e;
+  }
 }
 
 export function closeDb(): void {

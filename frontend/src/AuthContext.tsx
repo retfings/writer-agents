@@ -6,6 +6,7 @@ interface User {
   id: string;
   username: string;
   displayName: string;
+  approvalMode: 'auto' | 'manual';
 }
 
 interface AuthContextType {
@@ -14,6 +15,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string, displayName: string) => Promise<void>;
   logout: () => void;
+  updateApprovalMode: (mode: 'auto' | 'manual') => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>(null!);
@@ -29,7 +31,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       auth.me()
         .then(({ user: u }) => {
           setUser(u);
-          // if on login page, redirect to home
           if (window.location.pathname === '/login') {
             navigate('/', { replace: true });
           }
@@ -61,8 +62,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     navigate('/login', { replace: true });
   };
 
+  const updateApprovalMode = async (mode: 'auto' | 'manual') => {
+    const res = await fetch('/api/me', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify({ approvalMode: mode }),
+    });
+    const data = await res.json();
+    setUser(data.user);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateApprovalMode }}>
       {children}
     </AuthContext.Provider>
   );

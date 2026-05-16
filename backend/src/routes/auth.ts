@@ -66,20 +66,20 @@ router.post('/login', (req: Request, res: Response) => {
   logger.auth.loginSuccess(username, ip, user.id);
 
   const token = generateToken({ id: user.id, username: user.username });
-  res.json({ token, user: { id: user.id, username: user.username, displayName: user.display_name } });
+  res.json({ token, user: { id: user.id, username: user.username, displayName: user.display_name, approvalMode: user.approval_mode || 'auto' } });
 });
 
 router.get('/me', authMiddleware, (req: Request, res: Response) => {
   const user = (req as any).user;
   const ip = getClientIp(req);
   const db = getDb();
-  const u = db.prepare('SELECT id, username, display_name, created_at FROM users WHERE id = ?').get(user.id) as any;
+  const u = db.prepare('SELECT id, username, display_name, approval_mode, created_at FROM users WHERE id = ?').get(user.id) as any;
   if (!u) {
     res.status(404).json({ error: '用户不存在' });
     return;
   }
   logger.auth.tokenVerify(u.username, ip);
-  res.json({ user: { id: u.id, username: u.username, displayName: u.display_name, createdAt: u.created_at } });
+  res.json({ user: { id: u.id, username: u.username, displayName: u.display_name, approvalMode: u.approval_mode || 'auto', createdAt: u.created_at } });
 });
 
 export default router;

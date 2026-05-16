@@ -4,6 +4,7 @@ import { getDb } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { getAgentConfigs } from '../models';
 import { generateBookIdea } from '../models/title-gen';
+import { createApprovalRequest, waitForApproval } from './approvals';
 import type { NovelGenre, ModelProvider } from '../types';
 
 const router = Router();
@@ -40,10 +41,13 @@ router.post('/', (req: Request, res: Response) => {
   const provider: ModelProvider = modelProvider || 'deepseek';
   const agentConfig = getAgentConfigs(provider);
 
+  const userSetting = db.prepare('SELECT approval_mode FROM users WHERE id = ?').get(user.id) as any;
+  const defaultApprovalMode = userSetting?.approval_mode || 'auto';
+
   db.prepare(`
-    INSERT INTO projects (id, user_id, title, genre, synopsis, target_words, total_chapters, agent_config, model_provider)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, user.id, title, genre || 'urban', synopsis || '', targetWords || 500000, totalChapters || 150, JSON.stringify(agentConfig), provider);
+    INSERT INTO projects (id, user_id, title, genre, synopsis, target_words, total_chapters, agent_config, model_provider, approval_mode)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, user.id, title, genre || 'urban', synopsis || '', targetWords || 500000, totalChapters || 150, JSON.stringify(agentConfig), provider, defaultApprovalMode);
 
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as any;
   res.json({
@@ -119,10 +123,60 @@ router.delete('/:id', (req: Request, res: Response) => {
 
 // AI generate book idea (title + synopsis)
 router.post('/generate-idea', async (req: Request, res: Response) => {
-  const { prompt } = req.body;
+  const user = (req as any).user;
+  const { prompt, projectId } = req.body;
   if (!prompt || prompt.trim().length < 3) {
     res.status(400).json({ error: '请输入故事创意（至少3个字）' });
     return;
+  }
+
+  let approvalMode = 'auto';
+  let effectiveProjectId = projectId;
+
+  if (projectId) {
+    const db = getDb();
+    const project = db.prepare('SELECT approval_mode FROM projects WHERE id = ? AND user_id = ?')
+      .get(projectId, user.id) as any;
+    if (project) {
+      approvalMode = project.approval_mode || 'auto';
+    }
+  } else {
+    const db = getDb();
+    const userSetting = db.prepare('SELECT approval_mode FROM users WHERE id = ?').get(user.id) as any;
+    approvalMode = userSetting?.approval_mode || 'auto';
+  }
+
+  console.log(`[GenerateIdea] approvalMode=${approvalMode}, projectId=${projectId}`);
+
+  if (approvalMode === 'manual' && effectiveProjectId) {
+    const systemPrompt = '你是番茄小说平台的资深内容策划，专门为商业网络小说起书名和写简介。';
+    const userPrompt = `故事核心创意：${prompt}`;
+
+    const requestId = createApprovalRequest({
+      projectId: effectiveProjectId,
+      userId: user.id,
+      agentType: 'title-gen',
+      systemPrompt,
+      userPrompt,
+    });
+
+    console.log(`[GenerateIdea] Created approval request: ${requestId}, waiting...`);
+
+    const result = await waitForApproval(requestId);
+    console.log(`[GenerateIdea] Approval result: approved=${result.approved}`);
+
+    if (!result.approved) {
+      res.status(403).json({ error: '用户拒绝生成' });
+      return;
+    }
+
+    if (result.llmResponse) {
+      try {
+        const idea = JSON.parse(result.llmResponse);
+        res.json(idea);
+        return;
+      } catch {}
+    }
   }
 
   try {
