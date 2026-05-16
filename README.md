@@ -41,7 +41,7 @@ cp .env.example .env  # 配置 API keys
 ### 运行
 
 ```bash
-# 后端 (默认 :3000),如果已经 npm run dev 不要重复执行
+# 后端 (默认 :3000),如果已经 npm run dev 不要重复执行 （dev mode ,port 3000)
 cd backend && npm run dev
 
 # 前端 (直接运行在 80 端口)
