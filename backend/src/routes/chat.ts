@@ -8,6 +8,84 @@ import { createApprovalRequest, waitForApproval } from './approvals';
 const router = Router();
 router.use(authMiddleware as any);
 
+const DEFAULT_CHAT_PROMPT = `你是 NovelFlow 的 AI 写作助手，帮助作者创作小说。
+
+项目信息：
+- 书名：{title}
+- 类型：{genre}
+- 简介：{synopsis}
+- 目标字数：{targetWords} 字
+- 章节数：{chapterCount}
+
+主要角色：
+{characters}
+
+伏笔线索：
+{foreshadowing}
+
+当前章节：
+{currentChapter}
+
+你的职责：
+1. 帮助作者构思情节、完善设定
+2. 分析角色动机和行为合理性
+3. 提供写作建议和润色意见
+4. 检查逻辑漏洞和前后矛盾
+5. 解答关于角色、情节、世界观的任何问题
+6. 根据当前章节内容给出具体建议
+
+请用中文回答，风格简洁专业，像一位经验丰富的编辑。`;
+
+// Get chat prompt for project
+router.get('/project/:projectId/prompt', (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const row = db.prepare('SELECT system_prompt FROM chat_prompts WHERE project_id = ?').get(req.params.projectId) as any;
+    res.json({ 
+      success: true, 
+      data: { 
+        systemPrompt: row?.system_prompt || DEFAULT_CHAT_PROMPT,
+        isCustom: !!row 
+      } 
+    });
+  } catch (err: any) {
+    logger.error('Get chat prompt error:', err.message);
+    res.status(500).json({ success: false, error: '获取提示词失败' });
+  }
+});
+
+// Update chat prompt for project
+router.put('/project/:projectId/prompt', (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const { systemPrompt } = req.body;
+    if (typeof systemPrompt !== 'string') {
+      return res.status(400).json({ success: false, error: '提示词无效' });
+    }
+    db.prepare(`
+      INSERT INTO chat_prompts (id, project_id, system_prompt, updated_at)
+      VALUES (?, ?, ?, datetime('now'))
+      ON CONFLICT(project_id) DO UPDATE SET system_prompt = excluded.system_prompt, updated_at = datetime('now')
+    `).run(uuidv4(), req.params.projectId, systemPrompt);
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.error('Update chat prompt error:', err.message);
+    res.status(500).json({ success: false, error: '更新提示词失败' });
+  }
+});
+
+// Reset chat prompt to default
+router.delete('/project/:projectId/prompt', (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    db.prepare('DELETE FROM chat_prompts WHERE project_id = ?').run(req.params.projectId);
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.error('Delete chat prompt error:', err.message);
+    res.status(500).json({ success: false, error: '重置提示词失败' });
+  }
+});
+
 // Get chat history
 router.get('/project/:projectId/history', (req: Request, res: Response) => {
   try {
@@ -85,7 +163,29 @@ router.post('/project/:projectId/chat', async (req: Request, res: Response) => {
     ).run(userMsgId, projectId, 'user', message, contextJson);
 
     // Build system prompt
-    const systemPrompt = `你是 NovelFlow 的 AI 写作助手，帮助作者创作小说。
+    const customPromptRow = db.prepare('SELECT system_prompt FROM chat_prompts WHERE project_id = ?').get(projectId) as any;
+    const hasCustomPrompt = !!customPromptRow?.system_prompt;
+
+    let systemPrompt: string;
+    if (hasCustomPrompt) {
+      systemPrompt = customPromptRow.system_prompt
+        .replace('{title}', project.title)
+        .replace('{genre}', project.genre)
+        .replace('{synopsis}', project.synopsis || '无')
+        .replace('{targetWords}', (project.target_words || 0).toLocaleString())
+        .replace('{chapterCount}', String(chapters.length))
+        .replace('{characters}', characters.map((c: any) => {
+          const traits = JSON.parse(c.traits || '[]');
+          return `- ${c.name}（${c.role || '未知身份'}）：${c.description || '无描述'}，性格：${traits.join('、') || '无'}`;
+        }).join('\n') || '无')
+        .replace('{foreshadowing}', foreshadowing.length > 0 
+          ? foreshadowing.map((f: any) => `- ${f.title}：[${f.status === 'revealed' ? '已揭' : '未揭'}] ${f.description}`).join('\n')
+          : '无')
+        .replace('{currentChapter}', currentChapter 
+          ? `第${currentChapter.number}章 ${currentChapter.title}\n概要：${currentChapter.outline || '无'}\n正文（前2000字）：${(currentChapter.content || '').slice(0, 2000)}`
+          : '无');
+    } else {
+      systemPrompt = `你是 NovelFlow 的 AI 写作助手，帮助作者创作小说。
 
 项目信息：
 - 书名：${project.title}
@@ -115,6 +215,7 @@ ${currentChapter ? `当前章节：第${currentChapter.number}章 ${currentChapt
 6. 根据当前章节内容给出具体建议
 
 请用中文回答，风格简洁专业，像一位经验丰富的编辑。`;
+    }
 
     // Build messages array
     const messages: Array<{ role: string; content: string }> = [
@@ -148,6 +249,13 @@ ${currentChapter ? `当前章节：第${currentChapter.number}章 ${currentChapt
         return;
       }
       console.log(`[Chat] Proceeding with LLM call after approval`);
+
+      if (approvalResult.systemPrompt) {
+        messages[0] = { role: 'system', content: approvalResult.systemPrompt };
+      }
+      if (approvalResult.userPrompt) {
+        messages[messages.length - 1] = { role: 'user', content: approvalResult.userPrompt };
+      }
     }
 
     // Set up SSE

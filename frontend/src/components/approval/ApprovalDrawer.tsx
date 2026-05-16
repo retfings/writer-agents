@@ -26,11 +26,20 @@ const agentLabels: Record<string, string> = {
 
 export default function ApprovalDrawer({ requests, onUpdate }: ApprovalDrawerProps) {
   const [processing, setProcessing] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editSystemPrompt, setEditSystemPrompt] = useState('');
+  const [editUserPrompt, setEditUserPrompt] = useState('');
 
   const handleApprove = async (id: string) => {
     setProcessing(id);
     try {
-      await approvalApi.approve(id);
+      const payload: { systemPrompt?: string; userPrompt?: string } = {};
+      if (editingId === id) {
+        payload.systemPrompt = editSystemPrompt;
+        payload.userPrompt = editUserPrompt;
+      }
+      await approvalApi.approve(id, payload);
+      setEditingId(null);
       onUpdate();
     } catch (err) {
       console.error('批准失败:', err);
@@ -44,6 +53,7 @@ export default function ApprovalDrawer({ requests, onUpdate }: ApprovalDrawerPro
     setProcessing(id);
     try {
       await approvalApi.reject(id);
+      setEditingId(null);
       onUpdate();
     } catch (err) {
       console.error('拒绝失败:', err);
@@ -53,9 +63,20 @@ export default function ApprovalDrawer({ requests, onUpdate }: ApprovalDrawerPro
     }
   };
 
+  const startEditing = (req: ApprovalRequest) => {
+    setEditingId(req.id);
+    setEditSystemPrompt(req.systemPrompt);
+    setEditUserPrompt(req.userPrompt);
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+  };
+
   if (requests.length === 0) return null;
 
   const latestRequest = requests[0];
+  const isEditing = editingId === latestRequest.id;
 
   return (
     <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200">
@@ -81,21 +102,45 @@ export default function ApprovalDrawer({ requests, onUpdate }: ApprovalDrawerPro
           </div>
 
           <div className="mb-4">
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-              System Prompt
-            </label>
-            <div className="mt-1 text-xs text-gray-700 bg-white rounded p-2 max-h-40 overflow-y-auto border border-gray-200">
-              <pre className="whitespace-pre-wrap font-sans">{latestRequest.systemPrompt}</pre>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                System Prompt
+              </label>
+              <button
+                onClick={() => isEditing ? cancelEditing() : startEditing(latestRequest)}
+                className="text-xs text-orange-500 hover:text-orange-600"
+              >
+                {isEditing ? '取消' : '编辑'}
+              </button>
             </div>
+            {isEditing ? (
+              <textarea
+                value={editSystemPrompt}
+                onChange={e => setEditSystemPrompt(e.target.value)}
+                className="mt-1 w-full h-32 p-2 text-xs border border-gray-200 rounded resize-none focus:border-orange-300 focus:ring-1 focus:ring-orange-200 outline-none font-mono"
+              />
+            ) : (
+              <div className="mt-1 text-xs text-gray-700 bg-white rounded p-2 max-h-40 overflow-y-auto border border-gray-200">
+                <pre className="whitespace-pre-wrap font-sans">{latestRequest.systemPrompt}</pre>
+              </div>
+            )}
           </div>
 
           <div className="mb-4">
             <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
               User Prompt
             </label>
-            <div className="mt-1 text-xs text-gray-700 bg-white rounded p-2 max-h-40 overflow-y-auto border border-gray-200">
-              <pre className="whitespace-pre-wrap font-sans">{latestRequest.userPrompt}</pre>
-            </div>
+            {isEditing ? (
+              <textarea
+                value={editUserPrompt}
+                onChange={e => setEditUserPrompt(e.target.value)}
+                className="mt-1 w-full h-32 p-2 text-xs border border-gray-200 rounded resize-none focus:border-orange-300 focus:ring-1 focus:ring-orange-200 outline-none font-mono"
+              />
+            ) : (
+              <div className="mt-1 text-xs text-gray-700 bg-white rounded p-2 max-h-40 overflow-y-auto border border-gray-200">
+                <pre className="whitespace-pre-wrap font-sans">{latestRequest.userPrompt}</pre>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2">

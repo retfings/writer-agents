@@ -83,6 +83,7 @@ router.get('/:id', (req: Request, res: Response) => {
 router.post('/:id/approve', async (req: Request, res: Response) => {
   const user = (req as any).user;
   const db = getDb();
+  const { systemPrompt, userPrompt } = req.body || {};
 
   const request = db.prepare(`
     SELECT r.* FROM llm_approval_requests r
@@ -100,13 +101,23 @@ router.post('/:id/approve', async (req: Request, res: Response) => {
     return;
   }
 
-  db.prepare(`
-    UPDATE llm_approval_requests
-    SET status = 'approved', updated_at = datetime('now')
-    WHERE id = ?
-  `).run(req.params.id);
+  const updates: string[] = ["status = 'approved', updated_at = datetime('now')"];
+  const params: any[] = [];
 
-  res.json({ success: true });
+  if (typeof systemPrompt === 'string' && systemPrompt.trim()) {
+    updates.push('system_prompt = ?');
+    params.push(systemPrompt);
+  }
+  if (typeof userPrompt === 'string' && userPrompt.trim()) {
+    updates.push('user_prompt = ?');
+    params.push(userPrompt);
+  }
+
+  params.push(req.params.id);
+  db.prepare(`UPDATE llm_approval_requests SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+
+  const updated = db.prepare('SELECT system_prompt, user_prompt FROM llm_approval_requests WHERE id = ?').get(req.params.id) as any;
+  res.json({ success: true, systemPrompt: updated?.system_prompt, userPrompt: updated?.user_prompt });
 });
 
 router.post('/:id/reject', (req: Request, res: Response) => {
@@ -176,17 +187,17 @@ export function createApprovalRequest(params: {
   return id;
 }
 
-export function waitForApproval(requestId: string): Promise<{ approved: boolean; llmResponse?: string }> {
+export function waitForApproval(requestId: string): Promise<{ approved: boolean; llmResponse?: string; systemPrompt?: string; userPrompt?: string }> {
   return new Promise((resolve) => {
     const poll = () => {
       const db = getDb();
-      const request = db.prepare('SELECT status, llm_response FROM llm_approval_requests WHERE id = ?').get(requestId) as any;
+      const request = db.prepare('SELECT status, llm_response, system_prompt, user_prompt FROM llm_approval_requests WHERE id = ?').get(requestId) as any;
       if (!request) {
         resolve({ approved: false });
         return;
       }
       if (request.status === 'approved') {
-        resolve({ approved: true, llmResponse: request.llm_response });
+        resolve({ approved: true, llmResponse: request.llm_response, systemPrompt: request.system_prompt, userPrompt: request.user_prompt });
         return;
       }
       if (request.status === 'rejected') {

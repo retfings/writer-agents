@@ -135,6 +135,15 @@ export const chat = {
     request<{ messages: any[] }>(`/chat/project/${projectId}/history`),
   clearHistory: (projectId: string) =>
     request<{ success: boolean }>(`/chat/project/${projectId}/history`, { method: 'DELETE' }),
+  getPrompt: (projectId: string) =>
+    request<{ success: boolean; data: { systemPrompt: string; isCustom: boolean } }>(`/chat/project/${projectId}/prompt`),
+  updatePrompt: (projectId: string, systemPrompt: string) =>
+    request<{ success: boolean }>(`/chat/project/${projectId}/prompt`, {
+      method: 'PUT',
+      body: JSON.stringify({ systemPrompt }),
+    }),
+  resetPrompt: (projectId: string) =>
+    request<{ success: boolean }>(`/chat/project/${projectId}/prompt`, { method: 'DELETE' }),
   send: (projectId: string, message: string, chapterId?: string) => {
     const token = localStorage.getItem('token');
     return fetch(`${API_BASE}/chat/project/${projectId}/chat`, {
@@ -178,8 +187,11 @@ export const approvals = {
     request<{ requests: any[] }>(`/approvals/project/${projectId}/pending`),
   get: (id: string) =>
     request<{ request: any }>(`/approvals/${id}`),
-  approve: (id: string) =>
-    request<{ success: boolean }>(`/approvals/${id}/approve`, { method: 'POST' }),
+  approve: (id: string, payload?: { systemPrompt?: string; userPrompt?: string }) =>
+    request<{ success: boolean }>(`/approvals/${id}/approve`, {
+      method: 'POST',
+      body: payload ? JSON.stringify(payload) : undefined,
+    }),
   reject: (id: string) =>
     request<{ success: boolean }>(`/approvals/${id}/reject`, { method: 'POST' }),
 };

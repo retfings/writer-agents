@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { chat as chatApi } from '../../api';
+import { useViewport } from '../mobile/useViewport';
 
 interface Props {
   projectId: string;
@@ -28,10 +29,50 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showPromptEditor, setShowPromptEditor] = useState(false);
+  const [promptText, setPromptText] = useState('');
+  const [promptLoading, setPromptLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
   const stoppingRef = useRef(false);
+  const { isMobile } = useViewport();
+
+  useEffect(() => {
+    if (showPromptEditor) {
+      loadPrompt();
+    }
+  }, [showPromptEditor]);
+
+  const loadPrompt = async () => {
+    try {
+      const res = await chatApi.getPrompt(projectId);
+      if (res.success && res.data) {
+        setPromptText(res.data.systemPrompt);
+      }
+    } catch {}
+  };
+
+  const savePrompt = async () => {
+    setPromptLoading(true);
+    try {
+      await chatApi.updatePrompt(projectId, promptText);
+      setShowPromptEditor(false);
+    } catch {} finally {
+      setPromptLoading(false);
+    }
+  };
+
+  const resetPrompt = async () => {
+    if (!confirm('确定重置为默认提示词？')) return;
+    setPromptLoading(true);
+    try {
+      await chatApi.resetPrompt(projectId);
+      await loadPrompt();
+    } catch {} finally {
+      setPromptLoading(false);
+    }
+  };
 
   // Auto-scroll to bottom when messages update, but only if user is near bottom
   useEffect(() => {
@@ -153,6 +194,12 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100">
         <h3 className="font-semibold text-gray-800 text-base">🤖 AI 写作助手</h3>
         <div className="flex gap-1">
+          <button
+            onClick={() => setShowPromptEditor(true)}
+            className="text-xs text-gray-400 hover:text-gray-600"
+          >
+            提示词
+          </button>
           {messages.length === 0 && (
             <button
               onClick={() => { showHistory ? setShowHistory(false) : (loadHistory(), setShowHistory(true)); }}
@@ -185,7 +232,7 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
       )}
 
       {/* Messages */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-3 py-2 space-y-2 overscroll-contain">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
         {messages.length === 0 && (
           <div className="text-center py-8">
             <p className="text-4xl mb-2">💬</p>
@@ -277,6 +324,50 @@ export default function AIChatPanel({ projectId, chapterId, chapterTitle }: Prop
           )}
         </div>
       </div>
+
+      {showPromptEditor && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <h4 className="font-semibold text-gray-800">编辑提示词</h4>
+              <button onClick={() => setShowPromptEditor(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <textarea
+                value={promptText}
+                onChange={e => setPromptText(e.target.value)}
+                className="w-full h-64 p-3 border border-gray-200 rounded-lg text-sm resize-none focus:border-orange-300 focus:ring-1 focus:ring-orange-200 outline-none font-mono"
+                placeholder="输入系统提示词..."
+              />
+              <p className="text-xs text-gray-400 mt-2">可用变量：{'{title}'} 书名、{'{genre}'} 类型、{'{synopsis}'} 简介、{'{targetWords}'} 目标字数、{'{chapterCount}'} 章节数、{'{characters}'} 角色、{'{foreshadowing}'} 伏笔、{'{currentChapter}'} 当前章节</p>
+            </div>
+            <div className="flex justify-between px-4 py-3 border-t border-gray-100 gap-2">
+              <button
+                onClick={resetPrompt}
+                disabled={promptLoading}
+                className="px-3 py-1.5 text-xs text-gray-500 hover:text-red-500 border border-gray-200 rounded-lg"
+              >
+                重置默认
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowPromptEditor(false)}
+                  className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={savePrompt}
+                  disabled={promptLoading}
+                  className="px-3 py-1.5 text-xs bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
+                >
+                  保存
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -20,12 +20,15 @@ export default function MobileDrawer({ open, onClose, title, children }: Props) 
   }, [open]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
+    const touch = e.touches[0];
+    touchStartY.current = touch.clientY;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     const delta = e.changedTouches[0].clientY - touchStartY.current;
-    if (delta > 80) onClose(); // Swipe down to close
+    const target = e.target as HTMLElement;
+    const isInContent = target.closest('.drawer-content');
+    if (delta > 80 && !isInContent) onClose();
   };
 
   return (
@@ -64,7 +67,7 @@ export default function MobileDrawer({ open, onClose, title, children }: Props) 
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto px-4 pb-6" style={{ maxHeight: 'calc(75vh - 60px)' }}>
+        <div className="overflow-y-auto px-4 pb-6 drawer-content" style={{ maxHeight: 'calc(75vh - 60px)' }}>
           {children}
         </div>
       </div>
