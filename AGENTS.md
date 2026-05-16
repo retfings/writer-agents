@@ -57,10 +57,7 @@ docker run -d -p 80:80 --name novelflow \
 
 ```bash
 # Build backend
-cd backend && npm run build
-
-# Start services
-systemctl restart novelflow       
+cd backend && npm run dev （dev mode ,port 3000)
 
 # Start frontend (dev mode, port 80)
 cd frontend && npm run dev
@@ -68,7 +65,6 @@ cd frontend && npm run dev
 
 Frontend runs directly on port 80 via Vite dev server. API proxy to backend `:3000`.
 
-Docker 镜像架构：Nginx（静态文件 + API 代理） + Node.js（后端 API）
 
 ### Git Push Rule
 
