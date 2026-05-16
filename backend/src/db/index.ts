@@ -203,6 +203,44 @@ function initSchema(db: Database.Database): void {
   } catch (e: any) {
     if (!e.message.includes('duplicate column')) throw e;
   }
+
+  // Create approval_prompt_templates table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS approval_prompt_templates (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      system_prompt TEXT NOT NULL,
+      user_prompt TEXT NOT NULL,
+      version INTEGER DEFAULT 1,
+      is_default INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_approval_prompt_templates_user ON approval_prompt_templates(user_id);
+  `);
+
+  // Create approval_prompt_versions table for version history
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS approval_prompt_versions (
+      id TEXT PRIMARY KEY,
+      template_id TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      system_prompt TEXT NOT NULL,
+      user_prompt TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (template_id) REFERENCES approval_prompt_templates(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_approval_prompt_versions_template ON approval_prompt_versions(template_id);
+  `);
+
+  // Migration: add prompt_template_id to projects (safe to ignore if exists)
+  try {
+    db.exec(`ALTER TABLE projects ADD COLUMN prompt_template_id TEXT`);
+  } catch (e: any) {
+    if (!e.message.includes('duplicate column')) throw e;
+  }
 }
 
 export function closeDb(): void {

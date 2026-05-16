@@ -147,19 +147,32 @@ export function createApprovalRequest(params: {
 }): string {
   const db = getDb();
   const id = uuid();
+
+  let effectiveSystemPrompt = params.systemPrompt;
+  let effectiveUserPrompt = params.userPrompt;
+
+  // Check if project has a custom prompt template
+  const project = db.prepare('SELECT prompt_template_id FROM projects WHERE id = ?').get(params.projectId) as any;
+  if (project?.prompt_template_id) {
+    const template = db.prepare('SELECT * FROM approval_prompt_templates WHERE id = ?').get(project.prompt_template_id) as any;
+    if (template) {
+      effectiveSystemPrompt = template.system_prompt;
+      effectiveUserPrompt = template.user_prompt;
+      console.log(`[createApprovalRequest] Using template: ${template.name}`);
+    }
+  }
+
   console.log(`[createApprovalRequest] Creating request:`, {
     id,
     projectId: params.projectId,
     agentType: params.agentType,
-    systemPromptLength: params.systemPrompt.length,
-    userPromptLength: params.userPrompt.length,
-    systemPromptPreview: params.systemPrompt.slice(0, 100),
-    userPromptPreview: params.userPrompt.slice(0, 100),
+    systemPromptLength: effectiveSystemPrompt.length,
+    userPromptLength: effectiveUserPrompt.length,
   });
   db.prepare(`
     INSERT INTO llm_approval_requests (id, project_id, user_id, agent_type, system_prompt, user_prompt, status)
     VALUES (?, ?, ?, ?, ?, ?, 'pending')
-  `).run(id, params.projectId, params.userId, params.agentType, params.systemPrompt, params.userPrompt);
+  `).run(id, params.projectId, params.userId, params.agentType, effectiveSystemPrompt, effectiveUserPrompt);
   return id;
 }
 

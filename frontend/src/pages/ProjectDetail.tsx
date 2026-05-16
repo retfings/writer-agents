@@ -12,6 +12,7 @@ import MobileDrawer from '../components/mobile/MobileDrawer';
 import MobileFormatBubble from '../components/mobile/MobileFormatBubble';
 import CharacterExtractModal from '../components/character/CharacterExtractModal';
 import ApprovalDrawer from '../components/approval/ApprovalDrawer';
+import PromptTemplatesManager from '../components/approval/PromptTemplatesManager';
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -648,51 +649,54 @@ export default function ProjectDetail() {
       />
 
       {/* Approval Mode Toggle */}
-      <div className="fixed bottom-16 right-4 lg:bottom-4 z-40">
-        <button
-          onClick={() => setShowApprovalSettings(!showApprovalSettings)}
-          className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-colors ${
-            pendingApprovals.length > 0
-              ? 'bg-orange-500 text-white animate-pulse'
-              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-          }`}
-          title={`LLM 审批：${project?.approvalMode === 'manual' ? '手动' : '自动'}`}
-        >
-          ⚠️ {project?.approvalMode === 'manual' ? '手动' : '自动'}
-        </button>
-        {showApprovalSettings && (
-          <div className="absolute bottom-12 right-0 bg-white rounded-lg shadow-xl border border-gray-200 p-3 w-56">
-            <div className="text-xs font-medium text-gray-700 mb-2">LLM 审批模式</div>
-            <div className="space-y-1">
-              <button
-                onClick={() => handleApprovalModeChange('auto')}
-                className={`w-full text-left px-3 py-2 rounded text-xs ${
-                  project?.approvalMode === 'auto'
-                    ? 'bg-green-50 text-green-700 border border-green-200'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                🚀 自动批准（默认）
-              </button>
-              <button
-                onClick={() => handleApprovalModeChange('manual')}
-                className={`w-full text-left px-3 py-2 rounded text-xs ${
-                  project?.approvalMode === 'manual'
-                    ? 'bg-orange-50 text-orange-700 border border-orange-200'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                ⏳ 手动批准
-              </button>
-            </div>
-            {pendingApprovals.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-orange-600">
-                {pendingApprovals.length} 个待审批请求
-              </div>
-            )}
+      {showApprovalSettings && (
+        <div className="absolute bottom-12 right-0 bg-white rounded-lg shadow-xl border border-gray-200 p-3 w-56">
+          <div className="text-xs font-medium text-gray-700 mb-2">LLM 审批模式</div>
+          <div className="space-y-1">
+            <button
+              onClick={() => handleApprovalModeChange('auto')}
+              className={`w-full text-left px-3 py-2 rounded text-xs ${
+                project?.approvalMode === 'auto'
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              🚀 自动批准（默认）
+            </button>
+            <button
+              onClick={() => handleApprovalModeChange('manual')}
+              className={`w-full text-left px-3 py-2 rounded text-xs ${
+                project?.approvalMode === 'manual'
+                  ? 'bg-orange-50 text-orange-700 border border-orange-200'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              ⏳ 手动批准
+            </button>
           </div>
-        )}
-      </div>
+          {pendingApprovals.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-orange-600">
+              {pendingApprovals.length} 个待审批请求
+            </div>
+          )}
+          {project?.approvalMode === 'manual' && (
+            <div className="mt-2 pt-2 border-t border-gray-200">
+              <div className="text-[10px] text-gray-500 mb-1">提示词模板</div>
+              <PromptTemplatesManager
+                currentTemplateId={project?.promptTemplateId}
+                onSelectTemplate={async (templateId) => {
+                  try {
+                    await projects.update(project.id, { promptTemplateId: templateId });
+                    setProject((p: any) => ({ ...p, promptTemplateId: templateId }));
+                  } catch (err) {
+                    console.error('Failed to update template:', err);
+                  }
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
       <MobileDrawer open={mobileDrawer === 'outline'} onClose={() => setMobileDrawer('none')} title="大纲 & 创作">
         <div className="text-sm">
           <Sidebar

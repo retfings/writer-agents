@@ -183,3 +183,25 @@ export const approvals = {
   reject: (id: string) =>
     request<{ success: boolean }>(`/approvals/${id}/reject`, { method: 'POST' }),
 };
+
+// Prompt Templates
+export const promptTemplates = {
+  list: () =>
+    request<{ templates: any[] }>('/prompt-templates'),
+  get: (id: string) =>
+    request<{ template: any; versions: any[] }>(`/prompt-templates/${id}`),
+  create: (data: { name: string; systemPrompt?: string; userPrompt?: string; isDefault?: boolean }) =>
+    request<{ template: any }>('/prompt-templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  update: (id: string, data: { name?: string; systemPrompt?: string; userPrompt?: string; isDefault?: boolean }) =>
+    request<{ template: any }>(`/prompt-templates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  delete: (id: string) =>
+    request<{ success: boolean }>(`/prompt-templates/${id}`, { method: 'DELETE' }),
+  initDefaults: () =>
+    request<{ templates: any[] }>('/prompt-templates/init-defaults', { method: 'POST' }),
+};

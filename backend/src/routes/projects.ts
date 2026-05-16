@@ -21,6 +21,7 @@ router.get('/', (req: Request, res: Response) => {
   res.json({
     projects: projects.map(p => ({
       ...p,
+      approvalMode: p.approval_mode || 'auto',
       agentConfig: JSON.parse(p.agent_config || '[]'),
     })),
   });
@@ -81,7 +82,7 @@ router.get('/:id', (req: Request, res: Response) => {
 // Update project
 router.put('/:id', (req: Request, res: Response) => {
   const user = (req as any).user;
-  const { title, genre, synopsis, targetWords, status, approvalMode } = req.body;
+  const { title, genre, synopsis, targetWords, status, approvalMode, promptTemplateId } = req.body;
   const db = getDb();
 
   const project = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?')
@@ -89,6 +90,11 @@ router.put('/:id', (req: Request, res: Response) => {
   if (!project) {
     res.status(404).json({ error: '项目不存在' });
     return;
+  }
+
+  // Handle promptTemplateId separately since COALESCE doesn't work well with NULL
+  if (promptTemplateId !== undefined) {
+    db.prepare(`UPDATE projects SET prompt_template_id = ? WHERE id = ?`).run(promptTemplateId, req.params.id);
   }
 
   db.prepare(`
@@ -104,10 +110,11 @@ router.put('/:id', (req: Request, res: Response) => {
   `).run(title, genre, synopsis, targetWords, status, approvalMode, req.params.id);
 
   const updated = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id) as any;
-  res.json({
+res.json({
     project: {
-      ...updated,
-      agentConfig: JSON.parse(updated.agent_config || '[]'),
+      ...project,
+      approvalMode: project.approval_mode || 'auto',
+      agentConfig: JSON.parse(project.agent_config || '[]'),
     },
   });
 });
