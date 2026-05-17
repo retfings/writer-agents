@@ -43,8 +43,8 @@ interface Props {
   chapters: ChapterItem[];
   activeChapterId: string | null;
   onSelectChapter: (ch: ChapterItem) => void;
-  onGenerateOutline: () => void;
-  generating: boolean;
+  onGenerateOutline?: () => void;
+  generating?: boolean;
   onDeleteChapter?: (id: string) => void;
   onDeleteAll?: () => void;
   deletingAll?: boolean;

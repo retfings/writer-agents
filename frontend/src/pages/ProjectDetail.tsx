@@ -6,7 +6,7 @@ import Sidebar from '../components/sidebar/Sidebar';
 import ChapterContent from '../components/reader/ChapterContent';
 import ChapterNav from '../components/reader/ChapterNav';
 import ReadingToolbar from '../components/reader/ReadingToolbar';
-import AIChatPanel from '../components/chat/AIChatPanel';
+import AIAssistant from '../components/chat/AIAssistant';
 import MobileBottomNav from '../components/mobile/MobileBottomNav';
 import MobileDrawer from '../components/mobile/MobileDrawer';
 import MobileFormatBubble from '../components/mobile/MobileFormatBubble';
@@ -32,9 +32,6 @@ export default function ProjectDetail() {
   const activeChapter = chapterList.find(ch => ch.id === activeChapterId) || null;
 
   // UI state
-  const [generating, setGenerating] = useState(false);
-  const [writing, setWriting] = useState(false);
-  const [reviewing, setReviewing] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
@@ -52,10 +49,7 @@ export default function ProjectDetail() {
     return (localStorage.getItem('novelflow-theme') as any) || 'light';
   });
 
-  // Rewrite modal
-  const [showRewriteModal, setShowRewriteModal] = useState(false);
-  const [rewriteInstructions, setRewriteInstructions] = useState('');
-  const [rewriting, setRewriting] = useState(false);
+  // Auto-save interval
   const [autoSaveInterval, setAutoSaveInterval] = useState(() => {
     const saved = localStorage.getItem('novelflow-autosave');
     return saved ? parseInt(saved) : 3;
@@ -64,29 +58,6 @@ export default function ProjectDetail() {
   // Approval state
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const [showApprovalSettings, setShowApprovalSettings] = useState(false);
-
-  useEffect(() => { if (id) loadAll(); }, [id]);
-
-  // Persist reading settings
-  useEffect(() => { localStorage.setItem('novelflow-fontSize', String(fontSize)); }, [fontSize]);
-  useEffect(() => { localStorage.setItem('novelflow-theme', theme); }, [theme]);
-  useEffect(() => { localStorage.setItem('novelflow-autosave', String(autoSaveInterval)); }, [autoSaveInterval]);
-
-  // Poll for pending approvals
-  useEffect(() => {
-    if (!id) return;
-
-    const loadPendingApprovals = async () => {
-      try {
-        const { requests } = await approvals.listPending(id);
-        setPendingApprovals(requests || []);
-      } catch {}
-    };
-
-    loadPendingApprovals();
-    const interval = setInterval(loadPendingApprovals, 2000);
-    return () => clearInterval(interval);
-  }, [id]);
 
   const loadAll = async () => {
     try {
@@ -126,8 +97,37 @@ export default function ProjectDetail() {
       ]);
       setForeshadowingList(fs);
       setNotesList(ns);
-    } catch {}
+    } catch { /* ignore */ }
   };
+
+  useEffect(() => {
+    if (id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadAll();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // Persist reading settings
+  useEffect(() => { localStorage.setItem('novelflow-fontSize', String(fontSize)); }, [fontSize]);
+  useEffect(() => { localStorage.setItem('novelflow-theme', theme); }, [theme]);
+  useEffect(() => { localStorage.setItem('novelflow-autosave', String(autoSaveInterval)); }, [autoSaveInterval]);
+
+  // Poll for pending approvals
+  useEffect(() => {
+    if (!id) return;
+
+    const loadPendingApprovals = async () => {
+      try {
+        const { requests } = await approvals.listPending(id);
+        setPendingApprovals(requests || []);
+      } catch { /* ignore */ }
+    };
+
+    loadPendingApprovals();
+    const interval = setInterval(loadPendingApprovals, 2000);
+    return () => clearInterval(interval);
+  }, [id]);
 
   const reloadChapters = async () => {
     const { chapters: chs } = await chapters.list(id!);
@@ -151,14 +151,14 @@ export default function ProjectDetail() {
       ]);
       setForeshadowingList(fs);
       setNotesList(ns);
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const reloadApprovals = async () => {
     try {
       const { requests } = await approvals.listPending(id!);
       setPendingApprovals(requests || []);
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const handleApprovalModeChange = async (mode: string) => {
@@ -168,50 +168,6 @@ export default function ProjectDetail() {
       setShowApprovalSettings(false);
     } catch (err: any) {
       setError(err.message);
-    }
-  };
-
-  // Outline generation
-  const handleGenerateOutline = async () => {
-    setGenerating(true);
-    setError('');
-    try {
-      await chapters.generateOutline(id!);
-      await reloadChapters();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  // Write chapter
-  const handleWriteChapter = async () => {
-    if (!activeChapter) return;
-    setWriting(true);
-    setError('');
-    try {
-      await chapters.write(id!, activeChapter.number);
-      await reloadChapters();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setWriting(false);
-    }
-  };
-
-  // Review chapter
-  const handleReviewChapter = async () => {
-    if (!activeChapter) return;
-    setReviewing(true);
-    setError('');
-    try {
-      await chapters.review(activeChapter.id);
-      await reloadChapters();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setReviewing(false);
     }
   };
 
@@ -247,47 +203,6 @@ export default function ProjectDetail() {
     await chapters.update(activeChapter.id, { content });
     setLastSavedAt(new Date());
     await reloadChapters();
-  };
-
-  // Rewrite
-  const handleRewrite = async () => {
-    if (!activeChapter || !rewriteInstructions.trim()) return;
-    setRewriting(true);
-    setShowRewriteModal(false);
-    try {
-      await chapters.rewrite(activeChapter.id, rewriteInstructions);
-      await reloadChapters();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setRewriting(false);
-    }
-  };
-
-  const handleAiSuggestRewrites = async () => {
-    if (!activeChapter) return;
-    setRewriting(true);
-    try {
-      const resp = await fetch('/api/projects/ai-rewrite-suggestions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          title: activeChapter.title || '',
-          content: (activeChapter.content || '').slice(0, 3000),
-          genre: project?.genre || 'urban',
-        }),
-      });
-      const data = await resp.json();
-      if (data.suggestions) setRewriteInstructions(data.suggestions);
-      else setError(data.error || 'AI 生成建议失败');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setRewriting(false);
-    }
   };
 
   // Character
@@ -421,52 +336,7 @@ export default function ProjectDetail() {
                 <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
               </svg>
             </a>
-            {/* Chapter actions */}
-            {activeChapter && (
-              <>
-                {activeChapter.status === 'outline' && (
-                  <button
-                    onClick={handleWriteChapter}
-                    disabled={writing}
-                    className="bg-orange-500 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-orange-600 disabled:opacity-70 flex items-center gap-1"
-                  >
-                    {writing ? (
-                      <>
-                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                        写作中...
-                      </>
-                    ) : '✍️ AI 写作'}
-                  </button>
-                )}
-                {activeChapter.status === 'draft' && (
-                  <button
-                    onClick={handleReviewChapter}
-                    disabled={reviewing}
-                    className="bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-blue-600 disabled:opacity-70 flex items-center gap-1"
-                  >
-                    {reviewing ? (
-                      <>
-                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                        审校中...
-                      </>
-                    ) : '🔍 AI 审校'}
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowRewriteModal(true)}
-                  className="text-xs text-gray-500 hover:text-purple-600 hover:bg-purple-50 px-2 py-1 rounded"
-                >
-                  🔄 重写
-                </button>
-              </>
-            )}
-          </div>
+            </div>
         </div>
 
         {/* Error banner */}
@@ -487,8 +357,6 @@ export default function ProjectDetail() {
               chapters={chapterList}
               activeChapterId={activeChapterId}
               onSelectChapter={(ch) => setActiveChapterId(ch.id)}
-              onGenerateOutline={handleGenerateOutline}
-              generating={generating}
               onDeleteChapter={handleDeleteChapter}
               onDeleteAll={handleDeleteAll}
               deletingAll={deletingAll}
@@ -546,36 +414,18 @@ export default function ProjectDetail() {
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                {generating ? (
-                  <>
-                    <svg className="animate-spin h-12 w-12 text-orange-400 mb-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                    </svg>
-                    <p className="text-base font-medium text-gray-600 mb-1">正在生成大纲</p>
-                    <p className="text-xs text-gray-400">AI 正在根据你的题材创作章节目录...</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-4xl mb-3">📖</p>
-                    <p className="text-sm mb-2">
-                      {chapterList.length === 0 ? '还没有章节' : '从左侧选择章节开始阅读'}
-                    </p>
-                    {chapterList.length === 0 && (
-                      <button
-                        onClick={handleGenerateOutline}
-                        className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-orange-600"
-                      >
-                        🤖 AI 生成大纲
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
+                  <p className="text-4xl mb-3">📖</p>
+                  <p className="text-sm mb-2">
+                    {chapterList.length === 0 ? '还没有章节' : '从左侧选择章节开始阅读'}
+                  </p>
+                  {chapterList.length === 0 && (
+                    <p className="text-xs text-gray-400">使用右侧 AI 助手输入 /outline 生成大纲</p>
+                  )}
+                </div>
             )
           }
           right={
-            <AIChatPanel
+            <AIAssistant
               projectId={id!}
               chapterId={activeChapterId}
               chapterTitle={activeChapter ? `第${activeChapter.number}章 ${activeChapter.title}` : undefined}
@@ -595,49 +445,6 @@ export default function ProjectDetail() {
         chapters={chapterList.map(ch => ({ id: ch.id, number: ch.number, title: ch.title }))}
         onConfirm={handleExtractConfirm}
       />
-
-      {/* Rewrite Modal */}
-      {showRewriteModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !rewriting && setShowRewriteModal(false)}>
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-5 sm:p-6" onClick={e => e.stopPropagation()}>
-            <h3 className="text-base sm:text-lg font-bold mb-1">🔄 重写本章</h3>
-            <p className="text-xs sm:text-sm text-gray-500 mb-4">
-              输入重写要求，AI 将根据你的要求重新生成章节内容。
-            </p>
-            <textarea
-              value={rewriteInstructions}
-              onChange={e => setRewriteInstructions(e.target.value)}
-              placeholder={`输入重写要求，例如：\n- 加强主角的心理描写\n- 增加一段追车戏\n- 对话更自然一些\n- 去掉脏话和暴力描写`}
-              className="w-full px-3 py-2.5 border rounded-lg text-sm resize-none mb-3"
-              rows={6}
-              disabled={rewriting}
-            />
-            <div className="flex gap-2 flex-wrap justify-end">
-              <button
-                onClick={handleAiSuggestRewrites}
-                disabled={rewriting}
-                className="text-orange-600 border border-orange-300 px-3 py-2 rounded-lg text-xs hover:bg-orange-50 disabled:opacity-50"
-              >
-                {rewriting ? '分析中...' : '🤖 AI 生成修改建议'}
-              </button>
-              <button
-                onClick={() => setShowRewriteModal(false)}
-                disabled={rewriting}
-                className="text-gray-500 px-3 py-2 rounded-lg text-xs"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleRewrite}
-                disabled={rewriting || !rewriteInstructions.trim()}
-                className="bg-purple-500 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-purple-600 disabled:opacity-50"
-              >
-                {rewriting ? '重写中...' : '确认重写'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Mobile bottom nav & drawers */}
       <MobileBottomNav activeTab={mobileDrawer} onTabChange={setMobileDrawer} />
@@ -704,8 +511,6 @@ export default function ProjectDetail() {
             chapters={chapterList}
             activeChapterId={activeChapterId}
             onSelectChapter={(ch) => { setActiveChapterId(ch.id); setMobileDrawer('none'); }}
-            onGenerateOutline={handleGenerateOutline}
-            generating={generating}
             onDeleteChapter={handleDeleteChapter}
             onDeleteAll={handleDeleteAll}
             deletingAll={deletingAll}
@@ -725,7 +530,7 @@ export default function ProjectDetail() {
         </div>
       </MobileDrawer>
       <MobileDrawer open={mobileDrawer === 'ai'} onClose={() => setMobileDrawer('none')} title="AI 助手">
-        <AIChatPanel
+        <AIAssistant
           projectId={id!}
           chapterId={activeChapterId}
           chapterTitle={activeChapter ? `第${activeChapter.number}章 ${activeChapter.title}` : undefined}
