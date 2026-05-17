@@ -714,13 +714,15 @@ function CreateProjectModal({ onClose, onCreate }: { onClose: () => void; onCrea
   );
 }
 
-function RewriteModal({ instructions, loading, onChange, onSubmit, onClose }: {
+interface RewriteModalProps {
   instructions: string;
   loading: boolean;
   onChange: (v: string) => void;
   onSubmit: () => void;
   onClose: () => void;
-}) {
+}
+
+function RewriteModal({ instructions, loading, onChange, onSubmit, onClose }: RewriteModalProps) {
   return (
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-5" onClick={e => e.stopPropagation()}>
