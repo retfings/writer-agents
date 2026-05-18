@@ -14,6 +14,8 @@ interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   isStreaming?: boolean;
+  type?: 'text' | 'projects';
+  projects?: ProjectItem[];
 }
 
 interface ProjectItem {
@@ -166,10 +168,13 @@ export default function AIAssistant({ projectId, chapterId, chapterTitle, onProj
       if (projectList.length === 0) {
         addAssistantMessage('📚 还没有项目。使用 `/new` 创建一个新项目吧！');
       } else {
-        const list = projectList.map(p =>
-          '• **' + p.title + '** (' + p.genre + ') - [打开项目](/project/' + p.id + ')'
-        ).join('\n');
-        addAssistantMessage('📚 **你的项目：**\n\n' + list + '\n\n点击链接打开项目，或使用 `/new` 创建新项目。');
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: '📚 **你的项目：** 点击卡片打开项目',
+          type: 'projects',
+          projects: projectList,
+        }]);
       }
       return;
     }
@@ -470,27 +475,55 @@ ${quickCommands.map(c => `• ${c.label}`).join('\n')}
         )}
         {messages.map(msg => (
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div
-              className={`max-w-[90%] px-3 py-1.5 rounded-lg text-sm leading-relaxed whitespace-pre-wrap ${
-                msg.role === 'user'
-                  ? 'bg-orange-500 text-white rounded-br-sm'
-                  : msg.role === 'system'
-                  ? 'bg-gray-100 text-gray-500 italic text-xs'
-                  : 'bg-gray-100 text-gray-700 rounded-bl-sm'
-              }`}
-            >
-              {msg.content}
-              {msg.isStreaming && (
-                <span className="inline-block w-1.5 h-4 bg-orange-400 ml-0.5 align-text-bottom animate-blink" />
-              )}
-              {!msg.isStreaming && !msg.content && !loading && (
-                <span className="inline-flex gap-0.5">
-                  <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                </span>
-              )}
-            </div>
+            {msg.type === 'projects' && msg.projects ? (
+              <div className="max-w-[90%] bg-gray-100 rounded-lg rounded-bl-sm p-2.5">
+                <p className="text-sm text-gray-700 mb-2">{msg.content}</p>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {msg.projects.map(p => {
+                    const genreNames: Record<string, string> = {
+                      urban: '都市', fantasy: '玄幻', xianxia: '仙侠', scifi: '科幻',
+                      historical: '历史', romance: '言情', suspense: '悬疑',
+                    };
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => navigate(`/project/${p.id}`)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-100 hover:border-orange-200 hover:bg-orange-50 cursor-pointer transition active:scale-[0.99]"
+                      >
+                        <span className="text-lg shrink-0">📖</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-gray-800 truncate">{p.title}</div>
+                          <div className="text-[11px] text-gray-400">{genreNames[p.genre] || p.genre}</div>
+                        </div>
+                        <span className="text-xs text-orange-500 shrink-0">打开 →</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div
+                className={`max-w-[90%] px-3 py-1.5 rounded-lg text-sm leading-relaxed whitespace-pre-wrap ${
+                  msg.role === 'user'
+                    ? 'bg-orange-500 text-white rounded-br-sm'
+                    : msg.role === 'system'
+                    ? 'bg-gray-100 text-gray-500 italic text-xs'
+                    : 'bg-gray-100 text-gray-700 rounded-bl-sm'
+                }`}
+              >
+                {msg.content}
+                {msg.isStreaming && (
+                  <span className="inline-block w-1.5 h-4 bg-orange-400 ml-0.5 align-text-bottom animate-blink" />
+                )}
+                {!msg.isStreaming && !msg.content && !loading && (
+                  <span className="inline-flex gap-0.5">
+                    <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         ))}
         <div ref={messagesEndRef} />

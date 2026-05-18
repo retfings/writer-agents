@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { projects } from '../api';
 import useProjectDetail from '../hooks/useProjectDetail';
 import ThreeColumnLayout from '../components/layout/ThreeColumnLayout';
@@ -5,6 +6,7 @@ import Sidebar from '../components/sidebar/Sidebar';
 import ChapterContent from '../components/reader/ChapterContent';
 import ChapterNav from '../components/reader/ChapterNav';
 import ReadingToolbar from '../components/reader/ReadingToolbar';
+import SettingsModal from '../components/reader/SettingsModal';
 import AIAssistant from '../components/chat/AIAssistant';
 import MobileBottomNav from '../components/mobile/MobileBottomNav';
 import MobileDrawer from '../components/mobile/MobileDrawer';
@@ -15,6 +17,7 @@ import PromptTemplatesManager from '../components/approval/PromptTemplatesManage
 
 export default function ProjectDetail() {
   const p = useProjectDetail();
+  const [showSettings, setShowSettings] = useState(false);
 
   if (p.loading) {
     return (
@@ -116,11 +119,10 @@ export default function ProjectDetail() {
                   rightCollapsed={p.rightCollapsed}
                   onToggleLeft={() => p.setLeftCollapsed(!p.leftCollapsed)}
                   onToggleRight={() => p.setRightCollapsed(!p.rightCollapsed)}
-                  autoSaveInterval={p.autoSaveInterval}
-                  onAutoSaveIntervalChange={p.setAutoSaveInterval}
                   focusMode={p.focusMode}
                   onToggleFocus={() => p.setFocusMode(!p.focusMode)}
                   onFormat={(cmd) => (window as any).__chapterFormat?.(cmd)}
+                  onOpenSettings={() => setShowSettings(true)}
                 />
                 <ChapterNav
                   chapters={p.chapterList.map(ch => ({ id: ch.id, number: ch.number, title: ch.title }))}
@@ -270,6 +272,23 @@ export default function ProjectDetail() {
           (window as any).__chapterFormat?.(cmd);
         }
       }} />
+      {showSettings && (
+        <SettingsModal
+          fontSize={p.fontSize}
+          onFontSizeChange={p.setFontSize}
+          theme={p.theme}
+          onThemeChange={p.setTheme}
+          leftCollapsed={p.leftCollapsed}
+          onToggleLeft={() => p.setLeftCollapsed(!p.leftCollapsed)}
+          rightCollapsed={p.rightCollapsed}
+          onToggleRight={() => p.setRightCollapsed(!p.rightCollapsed)}
+          autoSaveInterval={p.autoSaveInterval}
+          onAutoSaveIntervalChange={p.setAutoSaveInterval}
+          focusMode={p.focusMode}
+          onToggleFocus={() => p.setFocusMode(!p.focusMode)}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   );
 }
